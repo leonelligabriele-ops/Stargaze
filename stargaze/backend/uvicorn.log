@@ -1,0 +1,12 @@
+Stargaze ready.
+INFO:     127.0.0.1:62406 - "GET /health HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62407 - "GET /search?q=Interstellar HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62408 - "GET /search?q=Christopher+Nolan HTTP/1.1" 200 OK
+INFO:     127.0.0.1:62409 - "GET /search?q=japanese+lake+night+mystery HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49329 - "GET /search?q=interstellar&n=30 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60520 - "GET /similar/594634?n=25 HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:63453 - "GET /similar/594634?n=25 HTTP/1.1" 404 Not Found
+INFO:     127.0.0.1:63895 - "GET /search?q=tarkovski&n=30 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:63857 - "GET /search?q=Tarkovsky&n=30 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64406 - "GET /search?q=ichi%20the%20killer&n=30 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:52529 - "GET /search?q=japanese%20love%20movies&n=30 HTTP/1.1" 200 OK

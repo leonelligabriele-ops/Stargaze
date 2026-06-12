@@ -1,0 +1,122 @@
+.panel {
+  width: 310px;
+  flex-shrink: 0;
+  background: rgba(7, 9, 22, 0.97);
+  border-left: 1px solid rgba(100, 120, 255, 0.18);
+  padding: 32px 18px 18px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 13px;
+  position: relative;
+}
+
+.panel-close {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  background: none;
+  border: none;
+  color: rgba(165, 180, 252, 0.4);
+  cursor: pointer;
+  font-size: 0.95rem;
+  padding: 4px 8px;
+  border-radius: 4px;
+  line-height: 1;
+  transition: color 0.15s;
+}
+.panel-close:hover { color: #a5b4fc; }
+
+.panel-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #c7d2fe;
+  line-height: 1.35;
+  padding-right: 20px;
+}
+
+.panel-orig {
+  font-size: 0.78rem;
+  color: rgba(165, 180, 252, 0.4);
+  font-style: italic;
+  margin-top: -6px;
+}
+
+.panel-meta {
+  display: flex;
+  gap: 12px;
+  font-size: 0.82rem;
+  color: rgba(165, 180, 252, 0.65);
+}
+
+.panel-explanation {
+  font-size: 0.78rem;
+  font-style: italic;
+  color: rgba(134, 239, 172, 0.85);
+  background: rgba(134, 239, 172, 0.06);
+  border-left: 2px solid rgba(134, 239, 172, 0.35);
+  padding: 5px 10px;
+  border-radius: 0 4px 4px 0;
+  line-height: 1.5;
+}
+
+.panel-genres {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.genre-tag {
+  border: 1px solid;
+  border-radius: 20px;
+  font-size: 0.73rem;
+  padding: 2px 9px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.panel-field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 0.83rem;
+  color: rgba(200, 210, 255, 0.8);
+}
+
+.field-label {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: rgba(165, 180, 252, 0.38);
+}
+
+.keywords {
+  color: rgba(165, 180, 252, 0.55);
+  font-size: 0.78rem;
+}
+
+.panel-overview {
+  font-size: 0.82rem;
+  line-height: 1.65;
+  color: rgba(200, 210, 255, 0.58);
+  border-top: 1px solid rgba(100, 120, 255, 0.12);
+  padding-top: 13px;
+}
+
+.expand-btn {
+  margin-top: auto;
+  background: rgba(99, 102, 241, 0.12);
+  border: 1px solid rgba(99, 102, 241, 0.38);
+  border-radius: 8px;
+  color: #a5b4fc;
+  cursor: pointer;
+  font-size: 0.83rem;
+  padding: 10px 14px;
+  text-align: center;
+  transition: background 0.18s, border-color 0.18s;
+  letter-spacing: 0.03em;
+}
+
+.expand-btn:hover {
+  background: rgba(99, 102, 241, 0.28);
+  border-color: rgba(99, 102, 241, 0.6);
+}
