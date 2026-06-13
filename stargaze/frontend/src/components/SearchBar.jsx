@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import './SearchBar.css'
 
-export default function SearchBar({ onSearch, loading }) {
-  const [value, setValue] = useState('')
+export default function SearchBar({ onSearch, loading, initialValue = '' }) {
+  const [value, setValue] = useState(initialValue)
 
   function submit(e) {
     e.preventDefault()

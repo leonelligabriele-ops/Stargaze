@@ -96,6 +96,7 @@ def parse_movie(detail: dict) -> dict:
         "tmdb_id": detail["id"],
         "title": detail.get("title"),
         "original_title": detail.get("original_title"),
+        "poster_path": detail.get("poster_path"),
         "year": int(year) if year and year.isdigit() else None,
         "director": director,
         "cast": cast,

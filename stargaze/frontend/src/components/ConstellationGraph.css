@@ -10,7 +10,7 @@
   left: 50%;
   transform: translateX(-50%);
   font-size: 0.72rem;
-  color: rgba(165, 180, 252, 0.28);
+  color: var(--text-faint);
   pointer-events: none;
   letter-spacing: 0.03em;
   white-space: nowrap;

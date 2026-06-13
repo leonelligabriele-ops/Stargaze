@@ -56,7 +56,10 @@ function truncate(str, max) {
   return str.length > max ? str.slice(0, max - 1) + '…' : str
 }
 
-export default function ConstellationGraph({ data, selected, onSelect, onExpand }) {
+export default function ConstellationGraph({
+  data, selected, onSelect, onExpand,
+  hint = 'left-click — details  ·  right-click — expand from this star',
+}) {
   const fgRef    = useRef()
   const centerId = data?.center
 
@@ -148,13 +151,13 @@ export default function ConstellationGraph({ data, selected, onSelect, onExpand 
     }
   }, [selected, centerId, labelSet])
 
-  // Link: both opacity and width encode weight
+  // Link: both opacity and width encode weight. Gold edges per the cosmos theme.
   const paintLink = useCallback((link, ctx) => {
     const w     = link.weight || 0.1
-    const alpha = 0.06 + w * 0.74   // 0.06 (weak) → 0.80 (strong)
-    const lw    = 0.3 + w * 2.7     // 0.3 (weak)  → 3.0 (strong)
+    const alpha = 0.05 + w * 0.55   // 0.05 (weak) → 0.60 (strong)
+    const lw    = 0.3 + w * 2.4     // 0.3 (weak)  → 2.7 (strong)
 
-    ctx.strokeStyle = `rgba(140,160,255,${alpha.toFixed(2)})`
+    ctx.strokeStyle = `rgba(245,166,35,${alpha.toFixed(2)})`
     ctx.lineWidth   = lw
     ctx.setLineDash([])
     ctx.beginPath()
@@ -177,7 +180,7 @@ export default function ConstellationGraph({ data, selected, onSelect, onExpand 
       <ForceGraph2D
         ref={fgRef}
         graphData={data}
-        backgroundColor="#05060f"
+        backgroundColor="rgba(0,0,0,0)"
         nodeCanvasObject={paintNode}
         nodeCanvasObjectMode={() => 'replace'}
         nodePointerAreaPaint={paintPointerArea}
@@ -185,16 +188,14 @@ export default function ConstellationGraph({ data, selected, onSelect, onExpand 
         linkCanvasObjectMode={() => 'replace'}
         onNodeClick={node => onSelect(node)}
         onNodeRightClick={node => onExpand(node.id)}
-        nodeLabel={node => `${node.title}${node.year ? ` (${node.year})` : ''}`}
+        nodeLabel={node => `${node.title}${node.year ? ` (${Math.trunc(node.year)})` : ''}`}
         cooldownTicks={160}
         d3AlphaDecay={0.018}
         d3VelocityDecay={0.28}
         enableZoomInteraction
         enablePanInteraction
       />
-      <div className="graph-hint">
-        left-click — details &nbsp;·&nbsp; right-click — expand from this star
-      </div>
+      {hint && <div className="graph-hint">{hint}</div>}
     </div>
   )
 }
