@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { isSaved, toggleSaved } from '../lib/saved.js'
+import HalfStars from '../components/HalfStars.jsx'
+import { isSaved, toggleSaved, getReview, setReview, removeWatched, isBlocked, toggleBlocked } from '../lib/saved.js'
 import './FilmPage.css'
 
 const API = '/api'
@@ -49,19 +50,13 @@ function fmtYear(y) {
   return y != null ? String(Math.trunc(y)) : null
 }
 
-function StarRow({ value }) {
-  const outOf5 = (value ?? 0) / 2
-  const full = Math.floor(outOf5)
-  const half = outOf5 - full >= 0.5
-  return (
-    <span className="stars" aria-hidden="true">
-      {[0, 1, 2, 3, 4].map(i => {
-        const cls = i < full ? 'full' : (i === full && half ? 'half' : 'empty')
-        return <span key={i} className={`star ${cls}`}>★</span>
-      })}
-    </span>
-  )
+function fmtRuntime(min) {
+  if (!min || min <= 0) return null
+  const h = Math.floor(min / 60)
+  const m = Math.round(min % 60)
+  return h ? `${h}h ${m}m` : `${m}m`
 }
+
 
 function PosterBlock({ movie }) {
   const [errored, setErrored] = useState(false)
@@ -183,30 +178,45 @@ function WhereToWatch({ data, loading, region, onRegionChange }) {
 
 const TABS = ['CAST', 'CREW', 'DETAILS', 'GENRES']
 
-function TabContent({ tab, movie }) {
+function PersonItem({ name, role, onPerson }) {
+  return (
+    <li className="person person--clickable" onClick={() => onPerson(name)}
+        title={`See ${name}'s constellation`}>
+      <span className="person-avatar">{(name || '?')[0]}</span>
+      <span className="person-name">{name}</span>
+      {role && <span className="person-role">{role}</span>}
+    </li>
+  )
+}
+
+function TabContent({ tab, movie, onPerson }) {
   if (tab === 'CAST') {
     if (!movie.cast?.length) return <p className="tab-empty">No cast information available.</p>
     return (
       <ul className="people">
-        {movie.cast.map(name => (
-          <li key={name} className="person">
-            <span className="person-avatar">{name[0]}</span>
-            <span className="person-name">{name}</span>
-          </li>
-        ))}
+        {movie.cast.map(name => <PersonItem key={name} name={name} onPerson={onPerson} />)}
       </ul>
     )
   }
 
   if (tab === 'CREW') {
-    if (!movie.director) return <p className="tab-empty">No crew information available.</p>
+    // Most important people, in priority order, deduped, ~5–6 shown.
+    const ordered = [
+      [movie.director, 'Director'],
+      ...(movie.dop || []).map(n => [n, 'Cinematography']),
+      ...(movie.writers || []).map(n => [n, 'Screenplay']),
+      ...(movie.producers || []).map(n => [n, 'Producer']),
+    ].filter(([n]) => n)
+    const seen = new Set()
+    const crew = []
+    for (const [name, role] of ordered) {
+      if (!seen.has(name)) { seen.add(name); crew.push({ name, role }) }
+    }
+    const top = crew.slice(0, 6)
+    if (!top.length) return <p className="tab-empty">No crew information available.</p>
     return (
       <ul className="people">
-        <li className="person">
-          <span className="person-avatar">{movie.director[0]}</span>
-          <span className="person-name">{movie.director}</span>
-          <span className="person-role">Director</span>
-        </li>
+        {top.map(c => <PersonItem key={c.name} name={c.name} role={c.role} onPerson={onPerson} />)}
       </ul>
     )
   }
@@ -216,11 +226,10 @@ function TabContent({ tab, movie }) {
     if (movie.original_title && movie.original_title !== movie.title)
       rows.push(['Original title', movie.original_title])
     if (movie.year != null) rows.push(['Release year', fmtYear(movie.year)])
+    if (fmtRuntime(movie.runtime)) rows.push(['Runtime', fmtRuntime(movie.runtime)])
     if (movie.original_language)
       rows.push(['Original language', LANG[movie.original_language] || movie.original_language.toUpperCase()])
     if (movie.countries?.length) rows.push(['Country', movie.countries.join(', ')])
-    if (movie.rating != null) rows.push(['Rating', `${Number(movie.rating).toFixed(1)} / 10`])
-    if (movie.vote_count != null) rows.push(['Votes', Number(movie.vote_count).toLocaleString()])
     if (!rows.length) return <p className="tab-empty">No additional details available.</p>
     return (
       <dl className="details">
@@ -266,19 +275,47 @@ export default function FilmPage() {
   const [shared, setShared] = useState(false)
   const [region, setRegion] = useState(DEFAULT_REGION)
 
+  // Your grade (1–5) + comment for this film.
+  const [myRating, setMyRating] = useState(null)
+  const [comment, setComment] = useState('')
+  const [commentSaved, setCommentSaved] = useState(false)
+  const [commentOpen, setCommentOpen] = useState(false)
+  const [trailer, setTrailer] = useState(null)
+  const [trailerOpen, setTrailerOpen] = useState(false)
+  const [blocked, setBlocked] = useState(false)
+
   // Core film record — depends only on the id.
   useEffect(() => {
     let cancelled = false
     setLoading(true); setError(null); setMovie(null)
+    const r = getReview(id)
+    setMyRating(r.rating); setComment(r.comment); setCommentSaved(false)
     window.scrollTo(0, 0)
 
     fetch(`${API}/movie/${id}`)
       .then(r => { if (!r.ok) throw new Error(r.status === 404 ? 'Film not found' : `Server error ${r.status}`); return r.json() })
-      .then(d => { if (!cancelled) { setMovie(d); setSaved(isSaved(d.id)) } })
+      .then(d => { if (!cancelled) { setMovie(d); setSaved(isSaved(d.id)); setBlocked(isBlocked(d.id)) } })
       .catch(e => { if (!cancelled) setError(e.message) })
       .finally(() => { if (!cancelled) setLoading(false) })
 
     return () => { cancelled = true }
+  }, [id])
+
+  // Clicking a star grades the film and immediately adds it to Watched.
+  const onRate = useCallback((n) => {
+    setMyRating(n)
+    setReview(movie, n, comment)
+  }, [movie, comment])
+
+  const onSaveComment = useCallback(() => {
+    setReview(movie, myRating, comment)
+    setCommentSaved(true)
+    setTimeout(() => setCommentSaved(false), 1600)
+  }, [movie, myRating, comment])
+
+  const onRemoveReview = useCallback(() => {
+    removeWatched(id)
+    setMyRating(null); setComment('')
   }, [id])
 
   // Watch providers — refetched whenever the selected region changes.
@@ -295,6 +332,25 @@ export default function FilmPage() {
     return () => { cancelled = true }
   }, [id, region])
 
+  // Trailer — fetched once per film; the heavy YouTube iframe only mounts on play.
+  useEffect(() => {
+    let cancelled = false
+    setTrailer(null); setTrailerOpen(false)
+    fetch(`${API}/movie/${id}/trailer`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (!cancelled) setTrailer(d) })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [id])
+
+  // Close the trailer with Escape.
+  useEffect(() => {
+    if (!trailerOpen) return
+    const onKey = e => { if (e.key === 'Escape') setTrailerOpen(false) }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [trailerOpen])
+
   const onShare = useCallback(async () => {
     const url = window.location.href
     try {
@@ -307,6 +363,11 @@ export default function FilmPage() {
       }
     } catch { /* user cancelled */ }
   }, [movie])
+
+  // Clicking a director / actor / crew member → their constellation in Explore.
+  const goToPerson = useCallback((name) => {
+    if (name) navigate(`/explore?person=${encodeURIComponent(name)}`)
+  }, [navigate])
 
   if (loading) {
     return (
@@ -352,6 +413,13 @@ export default function FilmPage() {
           <button className="icon-pill" onClick={onShare} aria-label="Share">
             {shared ? '✓' : '⤴'}
           </button>
+          <button
+            className={`icon-pill block-pill has-tip ${blocked ? 'is-blocked' : ''}`}
+            data-tip={blocked ? 'Blocked — click to unblock' : 'Block — never recommend again'}
+            onClick={() => setBlocked(toggleBlocked(movie))}
+            aria-label="Block film"
+            aria-pressed={blocked}
+          >🚫</button>
         </div>
       </header>
 
@@ -359,14 +427,42 @@ export default function FilmPage() {
         {/* Left column */}
         <div className="film-left">
           <PosterBlock movie={movie} />
-          <div className="rating-block">
-            <div className="rating-stars">
-              <StarRow value={movie.rating} />
+
+          {/* Your rating — grading a film adds it to Watched immediately */}
+          <div className="grade-card">
+            <span className="section-label">Your rating</span>
+            <HalfStars value={myRating || 0} onChange={onRate} />
+
+            <div className="comment-drop">
+              <button
+                className="comment-toggle"
+                onClick={() => setCommentOpen(o => !o)}
+                aria-expanded={commentOpen}
+              >
+                {comment ? '✎ Your comment' : '+ Add a comment'}
+                <span className={`caret ${commentOpen ? 'up' : ''}`}>⌄</span>
+              </button>
+
+              {!commentOpen && comment && <p className="comment-preview">“{comment}”</p>}
+
+              {commentOpen && (
+                <div className="comment-body">
+                  <textarea
+                    className="grade-comment"
+                    placeholder="Write a comment about this film…"
+                    value={comment}
+                    onChange={e => setComment(e.target.value)}
+                  />
+                  <button className="grade-save" onClick={onSaveComment}>
+                    {commentSaved ? '✓ Saved' : 'Save comment'}
+                  </button>
+                </div>
+              )}
             </div>
-            <div className="rating-num">
-              {movie.rating != null ? Number(movie.rating).toFixed(1) : '—'}
-              <span className="rating-out">/ 10</span>
-            </div>
+
+            {(myRating || comment) && (
+              <button className="grade-remove" onClick={onRemoveReview}>Remove from Watched</button>
+            )}
           </div>
         </div>
 
@@ -379,8 +475,14 @@ export default function FilmPage() {
           </h1>
 
           <p className="film-director">
-            Directed by <span className="director-name">{movie.director || 'Unknown'}</span>
+            Directed by {movie.director
+              ? <button className="director-name person-link" onClick={() => goToPerson(movie.director)}>{movie.director}</button>
+              : <span className="director-name">Unknown</span>}
           </p>
+
+          {fmtRuntime(movie.runtime) && (
+            <p className="film-meta"><span className="meta-clock">🕑</span> {fmtRuntime(movie.runtime)}</p>
+          )}
 
           <section className="film-section">
             <span className="section-label">Description</span>
@@ -388,6 +490,20 @@ export default function FilmPage() {
               {movie.description || 'No description available for this title yet.'}
             </p>
           </section>
+
+          {trailer?.key && (
+            <section className="film-section">
+              <span className="section-label">Trailer</span>
+              <button className="trailer-thumb" onClick={() => setTrailerOpen(true)} aria-label="Play trailer">
+                <img
+                  src={`https://img.youtube.com/vi/${trailer.key}/hqdefault.jpg`}
+                  alt=""
+                  loading="lazy"
+                />
+                <span className="trailer-play" aria-hidden="true">▶</span>
+              </button>
+            </section>
+          )}
 
           <WhereToWatch
             data={providers}
@@ -412,7 +528,7 @@ export default function FilmPage() {
           ))}
         </div>
         <div className="tab-panel">
-          <TabContent tab={tab} movie={movie} />
+          <TabContent tab={tab} movie={movie} onPerson={goToPerson} />
         </div>
       </div>
 
@@ -424,6 +540,21 @@ export default function FilmPage() {
         </div>
         <p className="tab-empty">No reviews yet. Be the first.</p>
       </section>
+
+      {/* Trailer lightbox — iframe only mounts while open */}
+      {trailerOpen && trailer?.key && (
+        <div className="trailer-modal" onClick={() => setTrailerOpen(false)}>
+          <div className="trailer-frame" onClick={e => e.stopPropagation()}>
+            <button className="trailer-close" onClick={() => setTrailerOpen(false)} aria-label="Close trailer">✕</button>
+            <iframe
+              src={`https://www.youtube-nocookie.com/embed/${trailer.key}?autoplay=1&rel=0`}
+              title={`${movie.title} trailer`}
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+              allowFullScreen
+            />
+          </div>
+        </div>
+      )}
     </div>
   )
 }

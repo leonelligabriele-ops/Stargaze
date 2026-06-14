@@ -8,14 +8,41 @@
 .explore-header {
   display: flex;
   align-items: center;
-  gap: 20px;
-  padding: 10px 24px;
+  flex-wrap: wrap;
+  gap: 12px 18px;
+  padding: 12px 24px;
   background: rgba(10, 14, 20, 0.92);
   border-bottom: 1px solid var(--border-subtle);
+  -webkit-backdrop-filter: blur(8px);
   backdrop-filter: blur(8px);
   z-index: 10;
   flex-shrink: 0;
 }
+
+/* On wider screens keep search from eating all the room so filters sit inline. */
+.explore-header .search-form { flex: 1 1 320px; max-width: 520px; }
+
+.person-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 0.88rem;
+  color: var(--text-muted);
+  background: rgba(245, 166, 35, 0.08);
+  border: 1px solid rgba(245, 166, 35, 0.4);
+  border-radius: 999px;
+  padding: 7px 8px 7px 14px;
+}
+.person-pill strong { color: var(--accent-gold); font-weight: 700; }
+.person-pill-icon { font-size: 0.95rem; }
+.person-pill button {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px; border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06); border: none;
+  color: var(--text-muted); cursor: pointer; font-size: 0.7rem;
+  transition: background .14s, color .14s;
+}
+.person-pill button:hover { background: rgba(255, 255, 255, 0.14); color: var(--text-primary); }
 
 .brand-link {
   background: none;

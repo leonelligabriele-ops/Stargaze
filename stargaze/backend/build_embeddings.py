@@ -43,9 +43,12 @@ ISO_TO_NAME: dict[str, str] = {
 }
 
 METADATA_FIELDS = [
-    "tmdb_id", "title", "original_title", "year", "director",
-    "cast", "genres", "countries", "keywords", "overview",
-    "vote_average", "vote_count", "original_language",
+    "tmdb_id", "title", "original_title", "alt_titles", "tagline",
+    "year", "release_date", "director", "writers", "dop", "producers",
+    "cast", "genres", "countries", "spoken_languages", "production_companies",
+    "original_language", "runtime", "overview", "keywords",
+    "vote_average", "vote_count", "popularity", "budget", "revenue",
+    "imdb_id", "poster_path", "backdrop_path", "adult",
 ]
 
 
@@ -71,18 +74,29 @@ def resolve_countries(raw: list[str]) -> list[str]:
     return [ISO_TO_NAME.get(c, c) for c in raw]
 
 
+def _s(v) -> str:
+    """Safe string: parquet stores missing scalars as NaN (a float)."""
+    return v.strip() if isinstance(v, str) else ""
+
+
 def make_text(row: dict) -> str:
-    title    = row.get("title") or "Unknown"
-    year     = row.get("year") or ""
+    y        = row.get("year")
+    year     = int(y) if isinstance(y, (int, float)) and y == y else ""
+    title    = _s(row.get("title")) or "Unknown"
     genres   = ", ".join(_lst(row.get("genres")))   or "unknown genre"
     countries= ", ".join(resolve_countries(_lst(row.get("countries")))) or "unknown country"
-    director = row.get("director") or "unknown director"
-    keywords = ", ".join(_lst(row.get("keywords"))[:25])
-    overview = (row.get("overview") or "").strip()
+    director = _s(row.get("director")) or "unknown director"
+    cast     = ", ".join(_lst(row.get("cast"))[:6])
+    tagline  = _s(row.get("tagline"))
+    keywords = ", ".join(_lst(row.get("keywords")))   # all of them
+    overview = _s(row.get("overview"))
+
+    starring = f" starring {cast}" if cast else ""
+    tag      = f" {tagline}." if tagline else ""
 
     return (
         f"{title} ({year}). "
-        f"A {genres} film from {countries} directed by {director}. "
+        f"A {genres} film from {countries} directed by {director}{starring}.{tag} "
         f"Setting and atmosphere keywords: {keywords}. "
         f"Plot: {overview}"
     )

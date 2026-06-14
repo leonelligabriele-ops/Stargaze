@@ -125,3 +125,27 @@ a {
   color: inherit;
   text-decoration: none;
 }
+
+/* Hover tooltip: add class "has-tip" + a data-tip="..." attribute. */
+.has-tip { position: relative; }
+.has-tip::after {
+  content: attr(data-tip);
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  border: 1px solid var(--border-subtle);
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-size: 0.74rem;
+  font-weight: 500;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .15s ease;
+  z-index: 80;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+.has-tip:hover::after { opacity: 1; }

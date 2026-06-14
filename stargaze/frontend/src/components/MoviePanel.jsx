@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { isSaved, toggleSaved } from '../lib/saved.js'
+import { isSaved, toggleSaved, isBlocked, toggleBlocked } from '../lib/saved.js'
 import './MoviePanel.css'
 
 const GENRE_COLOR = {
@@ -12,24 +12,13 @@ const GENRE_COLOR = {
   'Thriller': '#3b82f6', 'War': '#92400e', 'Western': '#b45309',
 }
 
-function StarRating({ value }) {
-  if (value == null) return null
-  // TMDB rating is out of 10; show as 5 stars.
-  const outOf5 = value / 2
-  const full = Math.floor(outOf5)
-  const half = outOf5 - full >= 0.5
-  return (
-    <div className="card-rating" title={`${Number(value).toFixed(1)} / 10`}>
-      <span className="stars" aria-hidden="true">
-        {[0, 1, 2, 3, 4].map(i => {
-          const fill = i < full ? 'full' : (i === full && half ? 'half' : 'empty')
-          return <span key={i} className={`star ${fill}`}>★</span>
-        })}
-      </span>
-      <span className="rating-num">{Number(value).toFixed(1)}</span>
-    </div>
-  )
+function fmtRuntime(min) {
+  if (!min || min <= 0) return null
+  const h = Math.floor(min / 60)
+  const m = Math.round(min % 60)
+  return h ? `${h}h ${m}m` : `${m}m`
 }
+
 
 function PosterHeader({ movie }) {
   const [errored, setErrored] = useState(false)
@@ -62,21 +51,35 @@ function PosterHeader({ movie }) {
   )
 }
 
-export default function MoviePanel({ movie, onClose, onExpand }) {
+export default function MoviePanel({ movie, onClose, onExpand, onPerson, onBlock }) {
   const navigate = useNavigate()
   const [saved, setSaved] = useState(false)
+  const [blocked, setBlocked] = useState(false)
 
-  // Sync saved state whenever the displayed film changes.
+  // Sync saved + blocked state whenever the displayed film changes.
   useEffect(() => {
     setSaved(isSaved(movie.id))
+    setBlocked(isBlocked(movie.id))
   }, [movie.id])
 
   function onToggleSave() {
     setSaved(toggleSaved(movie))
   }
 
+  function onToggleBlock() {
+    const nowBlocked = toggleBlocked(movie)
+    setBlocked(nowBlocked)
+    if (nowBlocked) onBlock?.(movie)   // remove it from the current map
+  }
+
   return (
     <aside className="card" role="dialog" aria-label={`${movie.title} preview`}>
+      <button
+        className={`card-block has-tip ${blocked ? 'is-blocked' : ''}`}
+        data-tip={blocked ? 'Blocked — click to unblock' : 'Block — never recommend again'}
+        onClick={onToggleBlock}
+        aria-label="Block film"
+      >🚫</button>
       <button className="card-close" onClick={onClose} aria-label="Close preview">✕</button>
 
       <PosterHeader movie={movie} />
@@ -86,12 +89,30 @@ export default function MoviePanel({ movie, onClose, onExpand }) {
 
         <h2 className="card-title">{movie.title}</h2>
         <div className="card-sub">
-          {movie.director && <span>{movie.director}</span>}
+          {movie.director && (
+            <button className="person-link" onClick={() => onPerson?.(movie.director)}>
+              {movie.director}
+            </button>
+          )}
           {movie.director && movie.year && <span className="dot">·</span>}
           {movie.year && <span>{Math.trunc(movie.year)}</span>}
+          {fmtRuntime(movie.runtime) && <span className="dot">·</span>}
+          {fmtRuntime(movie.runtime) && <span>{fmtRuntime(movie.runtime)}</span>}
         </div>
 
-        <StarRating value={movie.rating} />
+        {movie.cast?.length > 0 && (
+          <div className="card-cast">
+            <span className="card-label">CAST</span>
+            <span className="cast-names">
+              {movie.cast.slice(0, 4).map((name, i) => (
+                <span key={name}>
+                  {i > 0 && <span className="cast-sep">, </span>}
+                  <button className="person-link" onClick={() => onPerson?.(name)}>{name}</button>
+                </span>
+              ))}
+            </span>
+          </div>
+        )}
 
         {movie.description && (
           <p className="card-desc">{movie.description}</p>

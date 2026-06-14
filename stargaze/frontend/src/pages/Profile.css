@@ -27,6 +27,21 @@
   background: var(--wordmark-grad);
   -webkit-background-clip: text; background-clip: text; color: transparent;
 }
+.blocked-link {
+  margin-left: auto;
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-muted);
+  border-radius: 10px; padding: 9px 14px;
+  font-size: .85rem; font-weight: 600; cursor: pointer;
+  transition: color .15s, border-color .15s, background .15s;
+}
+.blocked-link:hover {
+  color: var(--text-primary);
+  border-color: rgba(239, 68, 68, .4);
+  background: rgba(239, 68, 68, .08);
+}
 
 /* ---------------- Profile card ---------------- */
 .profile-card {
@@ -194,6 +209,7 @@
 .node-tmdb { font-size: .8rem; color: var(--accent-gold); }
 
 .node-rate { display: flex; flex-direction: column; gap: 8px; }
+.node-rate-row { display: flex; align-items: center; gap: 10px; }
 .rate10 { display: flex; flex-direction: column; gap: 6px; }
 .rate-stars { display: flex; gap: 2px; }
 .rate-star {
@@ -205,6 +221,12 @@
 .rate-star:hover { transform: scale(1.15); }
 .rate-star.on { color: var(--accent-gold); }
 .rate-val { font-size: .78rem; color: var(--text-muted); font-weight: 600; }
+.node-comment {
+  font-size: .82rem; line-height: 1.5; color: var(--text-muted);
+  font-style: italic;
+  border-left: 2px solid var(--border-subtle);
+  padding-left: 10px; margin-top: 4px;
+}
 
 .node-actions { display: flex; flex-direction: column; gap: 8px; margin-top: auto; }
 .np-primary, .np-secondary, .np-danger {

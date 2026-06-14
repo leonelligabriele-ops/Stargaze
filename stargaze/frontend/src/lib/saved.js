@@ -12,6 +12,7 @@
 const WATCHLIST_KEY = 'stargaze:saved'
 const WATCHED_KEY = 'stargaze:watched'
 const PROFILE_KEY = 'stargaze:profile'
+const BLOCKED_KEY = 'stargaze:blocked'   // films never to recommend again
 
 const CHANGED_EVENT = 'stargaze:saved-changed'
 
@@ -79,6 +80,12 @@ export function getUserRating(id) {
   return read(WATCHED_KEY)[String(id)]?.user_rating ?? null
 }
 
+/** Current 1–5 rating + comment for a film (defaults when not yet reviewed). */
+export function getReview(id) {
+  const e = read(WATCHED_KEY)[String(id)]
+  return { rating: e?.user_rating ?? null, comment: e?.comment ?? '' }
+}
+
 /** Add a film to the watched set (optionally with a rating). Idempotent. */
 export function addWatched(movie, userRating = null) {
   const map = read(WATCHED_KEY)
@@ -87,13 +94,28 @@ export function addWatched(movie, userRating = null) {
   write(WATCHED_KEY, map)
 }
 
-/** Set/clear the 1–10 rating for a watched film (adds it if missing). */
+/** Set/clear the 1–5 rating for a watched film (adds it if missing). */
 export function setUserRating(movie, userRating) {
   const map = read(WATCHED_KEY)
   const id = String(movie.id)
   const base = map[id] || snapshot(movie)
   map[id] = { ...base, user_rating: userRating }
   write(WATCHED_KEY, map)
+}
+
+/** Grade (1–5) and/or comment a film — upserts it into the watched set. */
+export function setReview(movie, rating, comment) {
+  const map = read(WATCHED_KEY)
+  const id = String(movie.id)
+  const base = map[id] || snapshot(movie)
+  map[id] = {
+    ...base,
+    user_rating: rating !== undefined ? rating : (base.user_rating ?? null),
+    comment: comment !== undefined ? comment : (base.comment ?? ''),
+  }
+  write(WATCHED_KEY, map)
+  // Grading something implies it's watched, so drop it from the watchlist.
+  removeFromWatchlist(id)
 }
 
 export function removeWatched(id) {
@@ -106,6 +128,35 @@ export function removeWatched(id) {
 export function markWatched(movie, userRating = null) {
   addWatched(movie, userRating)
   removeFromWatchlist(movie.id)
+}
+
+/* ───────────────────────── Blocked (never recommend) ───────────────────────── */
+export function isBlocked(id) {
+  return Boolean(read(BLOCKED_KEY)[String(id)])
+}
+
+export function toggleBlocked(movie) {
+  const map = read(BLOCKED_KEY)
+  const id = String(movie.id)
+  if (map[id]) delete map[id]
+  else map[id] = snapshot(movie)
+  write(BLOCKED_KEY, map)
+  return Boolean(map[id])
+}
+
+/** Comma-separated blocked ids for passing to the search endpoints. */
+export function getBlockedIds() {
+  return Object.keys(read(BLOCKED_KEY))
+}
+
+export function getBlockedList() {
+  return Object.values(read(BLOCKED_KEY))
+}
+
+export function removeBlocked(id) {
+  const map = read(BLOCKED_KEY)
+  delete map[String(id)]
+  write(BLOCKED_KEY, map)
 }
 
 /* ───────────────────────── Profile ───────────────────────── */

@@ -1,11 +1,12 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import ConstellationGraph from '../components/ConstellationGraph.jsx'
+import HalfStars from '../components/HalfStars.jsx'
 import {
   getProfile, setProfile,
   getWatchlist, getWatched,
   removeFromWatchlist, removeWatched,
-  markWatched, setUserRating, getUserRating,
+  markWatched, setUserRating, getReview, getBlockedList,
   COLLECTIONS_EVENT,
 } from '../lib/saved.js'
 import './Profile.css'
@@ -32,34 +33,16 @@ function useCollections() {
   return { watchlist: getWatchlist(), watched: getWatched() }
 }
 
-/* ───────────────────────── 1–10 rating control ───────────────────────── */
-function Rating10({ value, onChange }) {
-  const [hover, setHover] = useState(0)
-  const active = hover || value || 0
-  return (
-    <div className="rate10" onMouseLeave={() => setHover(0)}>
-      <div className="rate-stars">
-        {Array.from({ length: 10 }, (_, i) => i + 1).map(n => (
-          <button
-            key={n}
-            className={`rate-star ${n <= active ? 'on' : ''}`}
-            onMouseEnter={() => setHover(n)}
-            onClick={() => onChange(n === value ? null : n)}
-            aria-label={`Rate ${n} of 10`}
-          >★</button>
-        ))}
-      </div>
-      <span className="rate-val">{value ? `${value} / 10` : 'Tap to rate'}</span>
-    </div>
-  )
-}
-
 /* ───────────────────────── Node action panel ───────────────────────── */
 function NodePanel({ node, mode, onClose }) {
   const navigate = useNavigate()
-  const [rating, setRating] = useState(() => getUserRating(node.id))
+  const [rating, setRating] = useState(() => getReview(node.id).rating)
+  const [comment, setComment] = useState(() => getReview(node.id).comment)
 
-  useEffect(() => { setRating(getUserRating(node.id)) }, [node.id])
+  useEffect(() => {
+    const r = getReview(node.id)
+    setRating(r.rating); setComment(r.comment)
+  }, [node.id])
 
   const accent = GENRE_COLOR[node.genres?.[0]] ?? 'var(--brand-emerald)'
 
@@ -80,16 +63,17 @@ function NodePanel({ node, mode, onClose }) {
           <p className="node-sub">
             {node.director || 'Unknown'}{node.year ? ` · ${Math.trunc(node.year)}` : ''}
           </p>
-          {node.rating != null && (
-            <p className="node-tmdb">★ {Number(node.rating).toFixed(1)} TMDB</p>
-          )}
         </div>
       </div>
 
       {mode === 'watched' && (
         <div className="node-rate">
           <span className="mini-label">Your rating</span>
-          <Rating10 value={rating} onChange={onRate} />
+          <div className="node-rate-row">
+            <HalfStars value={rating || 0} onChange={onRate} size="1.2rem" clearable />
+            <span className="rate-val">{rating ? `${rating} / 5` : 'Tap to rate'}</span>
+          </div>
+          {comment && <p className="node-comment">“{comment}”</p>}
         </div>
       )}
 
@@ -273,6 +257,7 @@ export default function Profile() {
   }, [watchlist, watched])
 
   const films = tab === 'watchlist' ? watchlist : watched
+  const blockedCount = getBlockedList().length
 
   const onHome = useCallback(() => navigate('/'), [navigate])
 
@@ -281,6 +266,9 @@ export default function Profile() {
       <header className="profile-bar">
         <button className="back-arrow-btn" onClick={onHome} aria-label="Home">←</button>
         <span className="profile-brand">Stargaze</span>
+        <button className="blocked-link" onClick={() => navigate('/blocked')}>
+          🚫 Blocked{blockedCount ? ` (${blockedCount})` : ''}
+        </button>
       </header>
 
       <ProfileCard

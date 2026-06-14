@@ -86,6 +86,13 @@
   transition: background .15s;
 }
 .icon-pill:hover { background: #1b2533; }
+.block-pill { filter: grayscale(1) opacity(.75); }
+.block-pill:hover { filter: grayscale(0) opacity(1); }
+.block-pill.is-blocked {
+  filter: none;
+  border-color: rgba(239, 68, 68, 0.55);
+  background: rgba(239, 68, 68, 0.16);
+}
 
 /* ---------------- Main grid ---------------- */
 .film-grid {
@@ -114,24 +121,70 @@
 .ph-icon { font-size: 2.2rem; color: var(--accent); }
 .ph-title { font-size: 1rem; font-weight: 600; color: var(--text-muted); }
 
-.rating-block {
-  display: flex; align-items: center; justify-content: space-between;
+/* ---------------- Your rating (grade + comment) ---------------- */
+.grade-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
   background: var(--bg-elevated);
   border: 1px solid var(--border-subtle);
   border-radius: 12px;
   padding: 16px 18px;
 }
-.rating-num { font-size: 1.9rem; font-weight: 800; color: var(--accent-gold); line-height: 1; }
-.rating-out { font-size: .8rem; font-weight: 600; color: var(--text-faint); margin-left: 6px; }
+.grade-hint { font-size: .78rem; color: var(--text-muted); }
 
-.stars { display: inline-flex; gap: 2px; font-size: 1.15rem; }
-.star.full { color: var(--accent-gold); }
-.star.half {
-  color: var(--accent-gold);
-  -webkit-mask-image: linear-gradient(90deg, #000 50%, transparent 50%);
-  mask-image: linear-gradient(90deg, #000 50%, transparent 50%);
+/* Comment dropdown */
+.comment-drop { display: flex; flex-direction: column; gap: 8px; }
+.comment-toggle {
+  display: flex; align-items: center; justify-content: space-between;
+  background: var(--bg-input);
+  border: 1px solid var(--border-subtle);
+  border-radius: 9px; padding: 9px 12px;
+  color: var(--text-muted); font-size: .85rem; font-weight: 600;
+  cursor: pointer; transition: color .15s, border-color .15s;
 }
-.star.empty { color: rgba(255,255,255,.16); }
+.comment-toggle:hover { color: var(--text-primary); border-color: rgba(255,255,255,.18); }
+.comment-toggle .caret { font-size: .9rem; opacity: .7; transition: transform .2s; }
+.comment-toggle .caret.up { transform: rotate(180deg); }
+
+.comment-preview {
+  font-size: .82rem; line-height: 1.5; color: var(--text-muted); font-style: italic;
+  border-left: 2px solid var(--border-subtle); padding-left: 10px;
+}
+.comment-body { display: flex; flex-direction: column; gap: 8px; }
+
+.grade-comment {
+  width: 100%;
+  min-height: 80px;
+  resize: vertical;
+  background: var(--bg-input);
+  border: 1px solid var(--border-subtle);
+  border-radius: 9px;
+  padding: 10px 12px;
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: .88rem;
+  line-height: 1.5;
+  outline: none;
+  transition: border-color .15s;
+}
+.grade-comment:focus { border-color: var(--border-glow); }
+.grade-comment::placeholder { color: var(--text-faint); }
+
+.grade-save {
+  background: var(--brand-emerald); color: #04130d; border: none;
+  border-radius: 9px; padding: 9px 14px;
+  font-size: .86rem; font-weight: 600; cursor: pointer;
+  transition: background .15s;
+}
+.grade-save:hover { background: var(--brand-emerald-d); }
+.grade-remove {
+  align-self: flex-start;
+  background: transparent; border: none;
+  color: #f87171; padding: 2px 0;
+  font-size: .8rem; font-weight: 600; cursor: pointer;
+}
+.grade-remove:hover { text-decoration: underline; }
 
 /* Right column */
 .film-right { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
@@ -151,6 +204,21 @@
 .film-year { font-weight: 700; color: var(--text-faint); }
 .film-director { font-size: 1.05rem; color: var(--text-muted); margin-top: -6px; }
 .director-name { color: var(--accent-gold); font-weight: 600; }
+button.person-link {
+  background: none; border: none; padding: 0; font: inherit; cursor: pointer;
+  color: var(--accent-gold); font-weight: 600; transition: color .14s;
+}
+button.person-link:hover { color: #ffd27a; text-decoration: underline; }
+.person--clickable { cursor: pointer; border-radius: 9px; transition: background .14s; }
+.person--clickable:hover { background: var(--bg-input); }
+.person--clickable:hover .person-name { color: var(--accent-gold); }
+.film-meta {
+  display: inline-flex; align-items: center; gap: 6px;
+  align-self: flex-start;
+  font-size: .9rem; color: var(--text-muted);
+  margin-top: -4px;
+}
+.meta-clock { opacity: .8; }
 
 .section-label {
   font-size: .68rem; font-weight: 700; letter-spacing: .16em;
@@ -158,6 +226,76 @@
 }
 .film-section { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
 .film-desc { font-size: .96rem; line-height: 1.7; color: var(--text-muted); max-width: 60ch; }
+
+/* ---------------- Trailer ---------------- */
+.trailer-thumb {
+  position: relative;
+  display: block;
+  width: 100%;
+  max-width: 460px;
+  aspect-ratio: 16 / 9;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+  background: #0b0f16;
+  cursor: pointer;
+  padding: 0;
+}
+.trailer-thumb img {
+  width: 100%; height: 100%;
+  object-fit: cover; display: block;
+  transition: transform .25s, filter .2s;
+  filter: brightness(.82);
+}
+.trailer-thumb:hover img { transform: scale(1.04); filter: brightness(1); }
+.trailer-play {
+  position: absolute; top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  width: 56px; height: 56px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 50%;
+  background: rgba(16, 185, 129, 0.92);
+  color: #04130d; font-size: 1.3rem; padding-left: 4px;
+  box-shadow: 0 6px 22px rgba(0,0,0,.45);
+  transition: transform .2s, background .2s;
+}
+.trailer-thumb:hover .trailer-play { transform: translate(-50%, -50%) scale(1.08); background: var(--brand-emerald); }
+
+.trailer-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(2, 4, 8, 0.86);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+  animation: fade-in .15s ease;
+}
+@keyframes fade-in { from { opacity: 0 } to { opacity: 1 } }
+.trailer-frame {
+  position: relative;
+  width: min(960px, 100%);
+  aspect-ratio: 16 / 9;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 30px 80px rgba(0,0,0,.6);
+}
+.trailer-frame iframe { width: 100%; height: 100%; border: 0; }
+.trailer-close {
+  position: absolute;
+  top: -44px; right: 0;
+  width: 36px; height: 36px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 50%;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+  cursor: pointer; font-size: .9rem;
+}
+.trailer-close:hover { background: #1b2533; }
 
 /* ---------------- Where to watch ---------------- */
 .watch {

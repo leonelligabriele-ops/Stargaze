@@ -49,6 +49,44 @@
 }
 .card-close:hover { background: rgba(4, 6, 10, 0.8); transform: scale(1.06); }
 
+.card-block {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 3;
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(4, 6, 10, 0.72);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+  border: 1px solid var(--border-subtle);
+  cursor: pointer;
+  font-size: 0.95rem;
+  line-height: 1;
+  filter: grayscale(1);          /* gray by default */
+  opacity: 0.9;
+  transition: filter 0.15s, opacity 0.15s, transform 0.15s, border-color 0.15s, background 0.15s;
+}
+.card-block:hover { filter: grayscale(0); opacity: 1; transform: scale(1.08); background: rgba(4, 6, 10, 0.9); }
+.card-block.is-blocked {
+  filter: none;
+  opacity: 1;
+  border-color: rgba(239, 68, 68, 0.7);
+  background: rgba(239, 68, 68, 0.28);
+}
+
+/* The card clips horizontal overflow, so left-anchor this button's tooltip
+   (it sits at the card's left edge — a centred tooltip gets cut off). */
+.card-block.has-tip::after {
+  left: 0;
+  right: auto;
+  transform: none;
+}
+
 /* ---------------- Poster header ---------------- */
 .card-poster {
   position: relative;
@@ -131,12 +169,33 @@
 .card-sub {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 7px;
   font-size: 0.85rem;
   color: var(--text-muted);
   margin-top: -4px;
 }
 .card-sub .dot { opacity: 0.5; }
+
+/* Clickable person (director / cast) → person constellation */
+.person-link {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: var(--accent-gold);
+  cursor: pointer;
+  transition: color .14s;
+}
+.person-link:hover { color: #ffd27a; text-decoration: underline; }
+
+.card-cast {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.cast-names { font-size: 0.85rem; color: var(--text-muted); line-height: 1.5; }
+.cast-sep { color: var(--text-faint); }
 
 /* ---------------- Rating ---------------- */
 .card-rating {
@@ -167,14 +226,9 @@
 
 /* ---------------- Description ---------------- */
 .card-desc {
-  font-size: 0.86rem;
-  line-height: 1.6;
-  color: var(--text-muted);
-  /* truncate to ~4 lines */
-  display: -webkit-box;
-  -webkit-line-clamp: 4;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+  font-size: 0.9rem;
+  line-height: 1.65;
+  color: #c4ccd8;          /* lighter than muted for comfortable reading */
 }
 
 /* ---------------- Why this ---------------- */

@@ -31,6 +31,10 @@ import numpy as np
 
 DATA_DIR = Path(__file__).parent / "data"
 
+# Edge construction: mutual k-NN clusters + a max-spanning-tree backbone.
+KNN = 4                 # neighbours considered per node for mutual-kNN edges
+EDGE_THRESHOLD = 0.42   # min cosine sim for a (non-backbone) cluster edge
+
 # TMDB image CDN base for poster thumbnails (w500 ≈ 500px wide).
 TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/w500"
 
@@ -40,6 +44,13 @@ def _poster_url(poster_path: Optional[str]) -> Optional[str]:
     if not poster_path:
         return None
     return f"{TMDB_IMAGE_BASE}{poster_path}"
+
+
+def _year_int(v) -> Optional[int]:
+    """Year as int, or None — parquet stores a missing year as float NaN."""
+    if isinstance(v, (int, float)) and v == v:   # v == v is False only for NaN
+        return int(v)
+    return None
 
 _index: Optional[list[dict]] = None
 _embeddings: Optional[np.ndarray] = None
@@ -216,6 +227,10 @@ def _explain_node(
             return f"The standout film by {dir_name}, anchoring this constellation."
         if q_type == "saved":
             return f"{c_title} sits at the centre of your collection."
+        if q_type == "browse":
+            return f"{c_title} — a standout title matching your filters."
+        if q_type == "person":
+            return f"{c_title} — the most prominent film in this person's constellation."
         return f"The closest semantic match to “{query}”, anchoring this constellation."
 
     director  = row.get("director")
@@ -231,10 +246,10 @@ def _explain_node(
     c_countries    = set(center.get("countries") or [])
     shared_country = next((c for c in countries if c in c_countries), None)
 
-    year   = row.get("year")
-    c_year = center.get("year")
-    same_era = bool(year and c_year and abs(int(year) - int(c_year)) <= 7)
-    decade = f"{int(year) // 10 * 10}s" if year else ""
+    year   = _year_int(row.get("year"))
+    c_year = _year_int(center.get("year"))
+    same_era = bool(year and c_year and abs(year - c_year) <= 7)
+    decade = f"{year // 10 * 10}s" if year else ""
 
     def genre_phrase() -> str:
         if len(shared_g) >= 2:
@@ -340,46 +355,48 @@ def build_constellation(
     sim    = (subset @ subset.T).astype(float)  # (n, n), diag = 1.0
 
     # ── Edge accumulator ───────────────────────────────────────────────────
-    adj: list[set[int]] = [set() for _ in range(n)]
     edge_weights: dict[tuple[int, int], float] = {}
 
     def add_edge(i: int, j: int, w: float) -> None:
+        if i == j:
+            return
         key = (min(i, j), max(i, j))
         if w > edge_weights.get(key, -1.0):
             edge_weights[key] = w
-        adj[i].add(j)
-        adj[j].add(i)
 
-    # ── Rule 1: each node → top-3 peers, threshold 0.45 ──────────────────
+    # Each node's neighbours, nearest first (used for mutual k-NN).
+    neighbours = [
+        sorted((j for j in range(n) if j != i), key=lambda j, _i=i: sim[_i, j], reverse=True)
+        for i in range(n)
+    ]
+    topk = [set(neighbours[i][:KNN]) for i in range(n)]
+
+    # ── 1) Mutual k-NN: connect i–j only when each is in the other's top-k ──
+    #    Yields tight, meaningful clusters instead of hub-and-spoke spokes.
     for i in range(n):
-        peers = sorted(
-            (j for j in range(n) if j != i),
-            key=lambda j, _i=i: sim[_i, j],
-            reverse=True,
-        )
-        for j in peers[:3]:
-            if sim[i, j] >= 0.45:
+        for j in topk[i]:
+            if j > i and i in topk[j] and sim[i, j] >= EDGE_THRESHOLD:
                 add_edge(i, j, float(sim[i, j]))
 
-    # ── Rule 2: center → top-5 peers, no threshold ────────────────────────
-    center_peers = sorted(
-        (j for j in range(n) if j != 0),
-        key=lambda j: sim[0, j],
-        reverse=True,
-    )
-    for j in center_peers[:5]:
-        add_edge(0, j, float(sim[0, j]))
-
-    # ── Rule 3: bridge disconnected components to center ──────────────────
-    components = _bfs_components(n, adj)
-    if len(components) > 1:
-        center_members = set(next(c for c in components if 0 in c))
-        for comp in components:
-            if any(node in center_members for node in comp):
-                continue
-            # Pick the node in this component closest to the center
-            bridge = max(comp, key=lambda i: sim[0, i])
-            add_edge(0, bridge, float(sim[0, bridge]))
+    # ── 2) Maximum-spanning-tree backbone (Prim's) ─────────────────────────
+    #    Guarantees a single, cleanly connected constellation — no floating
+    #    islands and no artificial centre burst.
+    if n > 1:
+        in_tree = [False] * n
+        in_tree[0] = True
+        best_w = [float(sim[0, j]) for j in range(n)]   # best weight linking j to the tree
+        best_src = [0] * n
+        for _ in range(n - 1):
+            u = max((j for j in range(n) if not in_tree[j]),
+                    key=lambda j: best_w[j], default=None)
+            if u is None:
+                break
+            add_edge(best_src[u], u, float(sim[best_src[u], u]))
+            in_tree[u] = True
+            for j in range(n):
+                if not in_tree[j] and sim[u, j] > best_w[j]:
+                    best_w[j] = float(sim[u, j])
+                    best_src[j] = u
 
     # ── Serialise ─────────────────────────────────────────────────────────
     # Per-result contract (Step 2 preview card):
@@ -396,6 +413,7 @@ def build_constellation(
             "director":         rows[i].get("director"),
             "poster_url":       _poster_url(rows[i].get("poster_path")),
             "rating":           rows[i].get("vote_average"),
+            "runtime":          rows[i].get("runtime"),
             "description":      rows[i].get("overview") or "",
             "rationale":        _explain_node(rows[i], center_row, scores[i], i, ctx),
             "similarity_score": round(scores[i], 4),
@@ -403,11 +421,14 @@ def build_constellation(
             # ── constellation viz fields ──
             "genres":           rows[i].get("genres") or [],
             "cast":             rows[i].get("cast") or [],
-            "keywords":         (rows[i].get("keywords") or [])[:10],
+            "keywords":         (rows[i].get("keywords") or [])[:25],
             "score":            round(scores[i], 4),
         }
         for i in range(n)
     ]
+    # JSON can't represent NaN (and Starlette rejects it) — null out missing scalars.
+    _nn = lambda v: None if isinstance(v, float) and v != v else v
+    nodes = [{k: _nn(v) for k, v in node.items()} for node in nodes]
 
     links = [
         {
@@ -421,7 +442,7 @@ def build_constellation(
     return {"center": center_id, "nodes": nodes, "links": links}
 
 
-def build_constellation_from_ids(ids: list[str]) -> dict:
+def build_constellation_from_ids(ids: list[str], ctx_type: str = "saved") -> dict:
     """
     Build a constellation from an arbitrary set of tmdb ids (e.g. a user's
     saved films), with no search query. The most-voted film becomes the centre;
@@ -455,4 +476,4 @@ def build_constellation_from_ids(ids: list[str]) -> dict:
     candidates = [(rows_idx[k], float(sims[k])) for k in order]
 
     center_id = str(index[center_row]["tmdb_id"])
-    return build_constellation(center_id, candidates, search_context={"type": "saved"})
+    return build_constellation(center_id, candidates, search_context={"type": ctx_type})

@@ -3,6 +3,7 @@ import Home from './pages/Home.jsx'
 import Explore from './pages/Explore.jsx'
 import Profile from './pages/Profile.jsx'
 import FilmPage from './pages/FilmPage.jsx'
+import BlockedFilms from './pages/BlockedFilms.jsx'
 
 export default function App() {
   return (
@@ -13,6 +14,7 @@ export default function App() {
         <Route path="/explore" element={<Explore />} />
         <Route path="/film/:id" element={<FilmPage />} />
         <Route path="/profile" element={<Profile />} />
+        <Route path="/blocked" element={<BlockedFilms />} />
       </Routes>
     </>
   )

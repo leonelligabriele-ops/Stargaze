@@ -1,6 +1,10 @@
-import { useRef, useCallback, useEffect, useMemo } from 'react'
+import { useRef, useState, useCallback, useEffect } from 'react'
 import ForceGraph2D from 'react-force-graph-2d'
+import { forceCollide } from 'd3-force'
 import './ConstellationGraph.css'
+
+// Cap auto-fit zoom so tiny graphs (e.g. one saved film) don't fill the screen.
+const MAX_FIT_ZOOM = 2.5
 
 const GENRE_COLOR = {
   'Action': '#ef4444', 'Adventure': '#f97316', 'Animation': '#fbbf24',
@@ -56,6 +60,35 @@ function truncate(str, max) {
   return str.length > max ? str.slice(0, max - 1) + '…' : str
 }
 
+function Legend() {
+  const [open, setOpen] = useState(false)
+  return (
+    <div className="legend">
+      {open && (
+        <div className="legend-panel">
+          <div className="legend-title">Star colour = genre</div>
+          <div className="legend-grid">
+            {Object.entries(GENRE_COLOR).map(([name, color]) => (
+              <div key={name} className="legend-row">
+                <span className="legend-swatch" style={{ background: color }} />
+                <span className="legend-name">{name}</span>
+              </div>
+            ))}
+            <div className="legend-row">
+              <span className="legend-swatch" style={{ background: '#6366f1' }} />
+              <span className="legend-name">Other / unknown</span>
+            </div>
+          </div>
+        </div>
+      )}
+      <button className="legend-toggle" onClick={() => setOpen(o => !o)} aria-expanded={open}>
+        <span className="legend-toggle-dot" /> Genres
+        <span className={`legend-caret ${open ? 'up' : ''}`}>⌄</span>
+      </button>
+    </div>
+  )
+}
+
 export default function ConstellationGraph({
   data, selected, onSelect, onExpand,
   hint = 'left-click — details  ·  right-click — expand from this star',
@@ -63,31 +96,43 @@ export default function ConstellationGraph({
   const fgRef    = useRef()
   const centerId = data?.center
 
-  // Only the top-12 scoring nodes get persistent labels.
-  // The rest are legible stars that reveal their title via the tooltip on hover.
-  const labelSet = useMemo(() => {
-    if (!data?.nodes) return new Set()
-    const sorted = [...data.nodes].sort((a, b) => (b.score || 0) - (a.score || 0))
-    return new Set(sorted.slice(0, 12).map(n => n.id))
-  }, [data])
-
-  // Force tuning: stronger repulsion + weight-proportional link distance
+  // Force tuning: open the field up so the constellation is easy to explore.
+  //  · stronger (but range-limited) repulsion pushes stars apart
+  //  · longer links — weaker/less-similar pairs sit further out
+  //  · a collision force guarantees stars + their labels never overlap
   useEffect(() => {
     const fg = fgRef.current
     if (!fg) return
-    fg.d3Force('charge')?.strength(-240)
+    const cId = data?.center
+
+    fg.d3Force('charge')
+      ?.strength(-520)        // was -240: much more breathing room
+      .distanceMax(900)       // cap so huge graphs don't blow apart
+
     fg.d3Force('link')?.distance(
-      link => 55 + (1 - (link.weight || 0.1)) * 75   // 55 (strong) → 130 (weak)
+      link => 110 + (1 - (link.weight || 0.1)) * 190   // 110 (strong) → 300 (weak)
     )
+
+    // Keep a hard minimum gap around every star (radius + label headroom).
+    fg.d3Force('collide', forceCollide(node => {
+      const isCenter = node.id === cId
+      return nodeRadius(node, isCenter) + (isCenter ? 30 : 22)
+    }).strength(0.9).iterations(2))
+
     fg.d3ReheatSimulation?.()
-    const timer = setTimeout(() => fg.zoomToFit?.(500, 110), 1100)
-    return () => clearTimeout(timer)
+    const fit = setTimeout(() => fg.zoomToFit?.(600, 90), 1400)
+    // zoomToFit over-zooms when there are very few stars (e.g. a single saved
+    // film) — the lone star would fill the screen. Clamp the resulting zoom.
+    const clamp = setTimeout(() => {
+      if (fg.zoom && fg.zoom() > MAX_FIT_ZOOM) fg.zoom(MAX_FIT_ZOOM, 400)
+    }, 2150)
+    return () => { clearTimeout(fit); clearTimeout(clamp) }
+    // Re-centers (expand/drill-in) change the centre id → re-settle + refit.
   }, [data?.center])
 
-  const paintNode = useCallback((node, ctx, scale) => {
+  const paintNode = useCallback((node, ctx) => {
     const isCenter   = node.id === centerId
     const isSelected = selected?.id === node.id
-    const showLabel  = isCenter || isSelected || labelSet.has(node.id)
     const color      = nodeColor(node.genres)
     const r          = nodeRadius(node, isCenter)
 
@@ -106,50 +151,76 @@ export default function ConstellationGraph({
       ctx.lineWidth   = isSelected ? 2.2 : 1.6
       ctx.stroke()
     }
+  }, [selected, centerId])
 
-    // ── Label pill ────────────────────────────────────────────────────
-    if (showLabel) {
-      const label      = truncate(node.title, 22)
-      const fs         = Math.max(11 / scale, 2)
-      const fontWeight = isCenter || isSelected ? 600 : 400
-      ctx.font         = `${fontWeight} ${fs}px Inter, system-ui, sans-serif`
+  // Labels are drawn in a separate post-pass so they can be placed by
+  // importance with collision avoidance — the most important films always get a
+  // visible, non-overlapping title, and labels distribute around the stars.
+  const paintLabels = useCallback((ctx, globalScale) => {
+    if (!data?.nodes) return
+    const fs = Math.max(11 / globalScale, 2)
+    const padX = fs * 0.55
+    const padY = fs * 0.38
+    const placed = []
 
-      const tw  = ctx.measureText(label).width
-      const padX = fs * 0.55
-      const padY = fs * 0.38
-      const bx   = node.x - tw / 2 - padX
-      const by   = node.y + r + fs * 0.55
-      const bw   = tw + padX * 2
-      const bh   = fs + padY * 2
-      const brad = bh / 2   // full-pill radius
+    const overlaps = (x0, y0, x1, y1) =>
+      placed.some(p => x0 < p.x1 && x1 > p.x0 && y0 < p.y1 && y1 > p.y0)
 
-      // Semi-transparent dark pill
+    // Priority: centre, then selected, then by relevance score.
+    const order = [...data.nodes].sort((a, b) => {
+      const pa = a.id === centerId ? 2 : (selected?.id === a.id ? 1 : 0)
+      const pb = b.id === centerId ? 2 : (selected?.id === b.id ? 1 : 0)
+      return pb - pa || (b.score || 0) - (a.score || 0)
+    })
+
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+
+    for (const node of order) {
+      const isCenter   = node.id === centerId
+      const isSelected = selected?.id === node.id
+      const r     = nodeRadius(node, isCenter)
+      const label = truncate(node.title, 22)
+      ctx.font = `${isCenter || isSelected ? 600 : 400} ${fs}px Inter, system-ui, sans-serif`
+      const bw  = ctx.measureText(label).width + padX * 2
+      const bh  = fs + padY * 2
+      const off = r + fs * 0.5
+
+      // Try placements around the star: below, above, right, left.
+      const candidates = [
+        [node.x - bw / 2, node.y + off],
+        [node.x - bw / 2, node.y - off - bh],
+        [node.x + off, node.y - bh / 2],
+        [node.x - off - bw, node.y - bh / 2],
+      ]
+      let spot = null
+      for (const [bx, by] of candidates) {
+        if (!overlaps(bx, by, bx + bw, by + bh)) { spot = [bx, by]; break }
+      }
+      // Centre/selected are always labelled even if it means overlapping.
+      if (!spot) {
+        if (isCenter || isSelected) spot = [node.x - bw / 2, node.y + off]
+        else continue
+      }
+
+      const [bx, by] = spot
+      const brad = bh / 2
       ctx.fillStyle = 'rgba(4, 5, 18, 0.82)'
       pillPath(ctx, bx, by, bw, bh, brad)
       ctx.fill()
-
-      // Optional: subtle border on center label so it stands out more
       if (isCenter) {
-        ctx.strokeStyle = `rgba(${hexToRgb(color)}, 0.55)`
-        ctx.lineWidth   = 1
+        ctx.strokeStyle = `rgba(${hexToRgb(nodeColor(node.genres))}, 0.55)`
+        ctx.lineWidth = 1
         pillPath(ctx, bx, by, bw, bh, brad)
         ctx.stroke()
       }
-
-      // Text centred inside pill
-      ctx.textAlign    = 'center'
-      ctx.textBaseline = 'middle'
-      ctx.fillStyle    = isSelected
-        ? '#ffffff'
-        : isCenter
-        ? 'rgba(225,235,255,0.98)'
-        : 'rgba(190,200,255,0.82)'
-      ctx.fillText(label, node.x, by + bh / 2)
-
-      // Reset baselines
-      ctx.textBaseline = 'alphabetic'
+      ctx.fillStyle = isSelected ? '#ffffff'
+        : isCenter ? 'rgba(225,235,255,0.98)' : 'rgba(190,200,255,0.82)'
+      ctx.fillText(label, bx + bw / 2, by + bh / 2)
+      placed.push({ x0: bx, y0: by, x1: bx + bw, y1: by + bh })
     }
-  }, [selected, centerId, labelSet])
+    ctx.textBaseline = 'alphabetic'
+  }, [data, centerId, selected])
 
   // Link: both opacity and width encode weight. Gold edges per the cosmos theme.
   const paintLink = useCallback((link, ctx) => {
@@ -186,16 +257,18 @@ export default function ConstellationGraph({
         nodePointerAreaPaint={paintPointerArea}
         linkCanvasObject={paintLink}
         linkCanvasObjectMode={() => 'replace'}
+        onRenderFramePost={paintLabels}
         onNodeClick={node => onSelect(node)}
         onNodeRightClick={node => onExpand(node.id)}
         nodeLabel={node => `${node.title}${node.year ? ` (${Math.trunc(node.year)})` : ''}`}
-        cooldownTicks={160}
+        cooldownTicks={220}
         d3AlphaDecay={0.018}
-        d3VelocityDecay={0.28}
+        d3VelocityDecay={0.24}
         enableZoomInteraction
         enablePanInteraction
       />
       {hint && <div className="graph-hint">{hint}</div>}
+      <Legend />
     </div>
   )
 }
