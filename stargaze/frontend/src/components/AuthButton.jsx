@@ -1,7 +1,10 @@
 import { useState, useEffect, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../lib/auth.jsx'
 import AuthModal from './AuthModal.jsx'
 import './AuthButton.css'
+
+const ADMIN_EMAIL = import.meta.env.VITE_ADMIN_EMAIL
 
 /**
  * Account control for the top bars. Renders nothing when Supabase isn't
@@ -10,6 +13,7 @@ import './AuthButton.css'
  */
 export default function AuthButton() {
   const { enabled, user, signOut } = useAuth()
+  const navigate = useNavigate()
   const [showModal, setShowModal] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const ref = useRef(null)
@@ -41,6 +45,11 @@ export default function AuthButton() {
       {menuOpen && (
         <div className="auth-menu">
           <div className="auth-menu-email">{user.email}</div>
+          {ADMIN_EMAIL && user.email === ADMIN_EMAIL && (
+            <button className="auth-menu-item" onClick={() => { setMenuOpen(false); navigate('/admin') }}>
+              Admin dashboard
+            </button>
+          )}
           <button className="auth-menu-signout" onClick={() => { setMenuOpen(false); signOut() }}>
             Sign out
           </button>

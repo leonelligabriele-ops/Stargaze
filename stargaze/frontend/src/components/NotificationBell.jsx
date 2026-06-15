@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import {
   getNotifications, unreadCount, markNotificationsRead,
   clearNotifications, seedNotificationsOnce, COLLECTIONS_EVENT,
+  getNotifPrefs, setNotifPref, NOTIF_CATEGORIES,
 } from '../lib/saved.js'
 import './NotificationBell.css'
 
@@ -15,6 +16,7 @@ function timeAgo(iso) {
 
 export default function NotificationBell() {
   const [open, setOpen] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
   const [, force] = useState(0)
   const ref = useRef(null)
 
@@ -55,11 +57,42 @@ export default function NotificationBell() {
         <div className="bell-pop">
           <div className="bell-head">
             <span>Notifications</span>
-            {notifs.length > 0 && (
-              <button onClick={() => { clearNotifications(); force(n => n + 1) }}>Clear all</button>
-            )}
+            <div className="bell-head-actions">
+              {notifs.length > 0 && (
+                <button onClick={() => { clearNotifications(); force(n => n + 1) }}>Clear all</button>
+              )}
+              <button
+                className={`bell-gear ${settingsOpen ? 'active' : ''}`}
+                onClick={() => setSettingsOpen(s => !s)}
+                aria-label="Notification settings" title="Notification settings"
+              >⚙</button>
+            </div>
           </div>
-          {notifs.length === 0 ? (
+
+          {settingsOpen ? (
+            <div className="bell-settings">
+              <p className="bell-settings-title">Notify me about</p>
+              {NOTIF_CATEGORIES.map(c => {
+                const on = getNotifPrefs()[c.key] !== false
+                return (
+                  <label key={c.key} className="bell-pref">
+                    <span className="bell-pref-text">
+                      <span className="bell-pref-label">{c.label}</span>
+                      <span className="bell-pref-hint">{c.hint}</span>
+                    </span>
+                    <button
+                      type="button"
+                      className={`bell-switch ${on ? 'on' : ''}`}
+                      role="switch" aria-checked={on}
+                      onClick={() => { setNotifPref(c.key, !on); force(n => n + 1) }}
+                    >
+                      <span className="bell-knob" />
+                    </button>
+                  </label>
+                )
+              })}
+            </div>
+          ) : notifs.length === 0 ? (
             <p className="bell-empty">No notifications yet.</p>
           ) : (
             <ul className="bell-list">

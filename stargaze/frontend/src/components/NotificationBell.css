@@ -47,11 +47,44 @@
   border-bottom: 1px solid var(--border-subtle);
   font-size: .82rem; font-weight: 700; color: var(--text-primary);
 }
+.bell-head-actions { display: flex; align-items: center; gap: 10px; }
 .bell-head button {
   background: none; border: none; cursor: pointer;
   color: var(--text-muted); font-size: .75rem; font-weight: 600;
 }
 .bell-head button:hover { color: var(--text-primary); }
+.bell-gear { font-size: .95rem !important; line-height: 1; }
+.bell-gear.active { color: var(--brand-emerald); }
+
+/* settings panel */
+.bell-settings { padding: 8px 6px 12px; }
+.bell-settings-title {
+  font-size: .68rem; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--text-faint); padding: 8px 10px 6px;
+}
+.bell-pref {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 9px 10px; border-radius: 9px;
+}
+.bell-pref:hover { background: rgba(255,255,255,.03); }
+.bell-pref-text { display: flex; flex-direction: column; gap: 1px; }
+.bell-pref-label { font-size: .85rem; font-weight: 600; color: var(--text-primary); }
+.bell-pref-hint { font-size: .72rem; color: var(--text-faint); }
+
+.bell-switch {
+  flex: 0 0 auto;
+  width: 38px; height: 22px; border-radius: 999px;
+  background: #2a3645; border: none; cursor: pointer;
+  position: relative; transition: background .15s;
+  padding: 0 !important;
+}
+.bell-switch.on { background: var(--brand-emerald); }
+.bell-knob {
+  position: absolute; top: 2px; left: 2px;
+  width: 18px; height: 18px; border-radius: 50%;
+  background: #fff; transition: transform .15s;
+}
+.bell-switch.on .bell-knob { transform: translateX(16px); }
 
 .bell-empty { padding: 22px 14px; color: var(--text-faint); font-size: .85rem; text-align: center; }
 

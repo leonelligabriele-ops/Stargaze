@@ -8,6 +8,7 @@ const AuthCtx = createContext({ user: null, loading: false, enabled: false })
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(authEnabled)
+  const [recovery, setRecovery] = useState(false)   // came in via a reset-password link
   const syncedId = useRef(null)
 
   useEffect(() => {
@@ -23,6 +24,7 @@ export function AuthProvider({ children }) {
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
       const u = session?.user ?? null
       setUser(u)
+      if (event === 'PASSWORD_RECOVERY') setRecovery(true)
       if (u && syncedId.current !== u.id) { syncedId.current = u.id; startSync(u.id) }
       if (event === 'SIGNED_OUT') syncedId.current = null
     })
@@ -34,8 +36,17 @@ export function AuthProvider({ children }) {
     user,
     loading,
     enabled: authEnabled,
+    recovery,
     signUp: (email, password) => supabase.auth.signUp({ email, password }),
     signIn: (email, password) => supabase.auth.signInWithPassword({ email, password }),
+    resetPassword: (email) =>
+      supabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin }),
+    completeRecovery: async (password) => {
+      const res = await supabase.auth.updateUser({ password })
+      if (!res.error) setRecovery(false)
+      return res
+    },
+    dismissRecovery: () => setRecovery(false),
     signOut: async () => {
       await stopSync()                 // flush final state to the cloud
       await supabase.auth.signOut()

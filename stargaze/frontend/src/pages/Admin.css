@@ -1,0 +1,32 @@
+.admin { max-width: 900px; margin: 0 auto; padding: 18px 22px 60px; }
+
+.admin-msg { color: var(--text-muted); padding: 30px 0; text-align: center; }
+
+.admin-denied {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 12px; text-align: center; padding: 70px 20px;
+  color: var(--text-primary);
+}
+.admin-hint { font-size: 0.82rem; color: var(--text-faint); }
+
+.admin-body { margin-top: 22px; }
+.admin-cards { display: flex; flex-wrap: wrap; gap: 14px; }
+.admin-card {
+  flex: 1 1 180px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 14px;
+  padding: 20px;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.admin-num { font-size: 2rem; font-weight: 800; color: var(--brand-emerald); line-height: 1; }
+.admin-label { font-size: 0.82rem; color: var(--text-muted); }
+
+.admin-h2 { margin: 28px 0 12px; font-size: 1.1rem; font-weight: 700; color: var(--text-primary); }
+.admin-list { list-style: none; }
+.admin-list li {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 11px 4px; border-bottom: 1px solid var(--border-subtle);
+}
+.admin-email { color: var(--text-primary); font-size: 0.9rem; }
+.admin-when { color: var(--text-faint); font-size: 0.78rem; }

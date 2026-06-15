@@ -220,6 +220,7 @@ export function createCollection(name, sharedWith = []) {
     friends.length
       ? `You started "${map[id].name}" with ${friends.join(', ')}`
       : `New constellation "${map[id].name}" created`,
+    'constellations',
   )
   return id
 }
@@ -279,7 +280,7 @@ export function toggleFollow(user) {
   if (map[id]) delete map[id]
   else map[id] = { id, name: user.name }
   write(FOLLOWING_KEY, map)
-  pushNotification(map[id] ? `You followed ${user.name}` : `You unfollowed ${user.name}`)
+  pushNotification(map[id] ? `You followed ${user.name}` : `You unfollowed ${user.name}`, 'follows')
   return Boolean(map[id])
 }
 
@@ -293,6 +294,24 @@ export function getFollowing() {
 
 /* ───────────────────────── Notifications ───────────────────────── */
 const NOTIFS_KEY = 'stargaze:notifications'
+const NOTIF_PREFS_KEY = 'stargaze:notif-prefs'
+
+// Categories the user can switch on/off. pushNotification(text, category) is
+// suppressed when its category is disabled.
+export const NOTIF_CATEGORIES = [
+  { key: 'constellations', label: 'Constellations', hint: 'New & shared constellations' },
+  { key: 'follows', label: 'Follows', hint: 'When you follow someone' },
+  { key: 'system', label: 'System', hint: 'Welcome & app messages' },
+]
+const NOTIF_PREFS_DEFAULT = { constellations: true, follows: true, system: true }
+
+export function getNotifPrefs() {
+  return { ...NOTIF_PREFS_DEFAULT, ...read(NOTIF_PREFS_KEY) }
+}
+
+export function setNotifPref(category, enabled) {
+  write(NOTIF_PREFS_KEY, { ...getNotifPrefs(), [category]: Boolean(enabled) })
+}
 
 function readArr(key) {
   try { return JSON.parse(localStorage.getItem(key)) || [] } catch { return [] }
@@ -310,11 +329,12 @@ export function unreadCount() {
   return readArr(NOTIFS_KEY).filter(n => !n.read).length
 }
 
-export function pushNotification(text) {
+export function pushNotification(text, category = 'system') {
+  if (getNotifPrefs()[category] === false) return   // muted by the user
   const arr = readArr(NOTIFS_KEY)
   arr.unshift({
     id: 'n' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5),
-    text, time: new Date().toISOString(), read: false,
+    text, category, time: new Date().toISOString(), read: false,
   })
   writeArr(NOTIFS_KEY, arr.slice(0, 50))
 }
@@ -331,14 +351,14 @@ export function clearNotifications() {
 export function seedNotificationsOnce() {
   if (localStorage.getItem('stargaze:notif-seeded')) return
   localStorage.setItem('stargaze:notif-seeded', '1')
-  pushNotification('Welcome to Stargaze ✦ — save films and build your constellations.')
+  pushNotification('Welcome to Stargaze ✦ — save films and build your constellations.', 'system')
 }
 
 /* ───────────── Cloud sync helpers (account backup / restore) ───────────── */
 // Every persisted collection key, so an account can mirror the whole profile.
 const _ALL_KEYS = [
   WATCHLIST_KEY, WATCHED_KEY, PROFILE_KEY, BLOCKED_KEY,
-  COLLECTIONS_KEY, FOLLOWING_KEY, NOTIFS_KEY,
+  COLLECTIONS_KEY, FOLLOWING_KEY, NOTIFS_KEY, NOTIF_PREFS_KEY,
 ]
 
 /** Snapshot all persisted data as one plain object (for cloud backup). */

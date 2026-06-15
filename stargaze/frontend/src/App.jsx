@@ -6,6 +6,8 @@ import OtherProfile from './pages/OtherProfile.jsx'
 import Connections from './pages/Connections.jsx'
 import FilmPage from './pages/FilmPage.jsx'
 import BlockedFilms from './pages/BlockedFilms.jsx'
+import Admin from './pages/Admin.jsx'
+import SetPasswordModal from './components/SetPasswordModal.jsx'
 
 export default function App() {
   return (
@@ -19,7 +21,9 @@ export default function App() {
         <Route path="/u/:id" element={<OtherProfile />} />
         <Route path="/connections/:type" element={<Connections />} />
         <Route path="/blocked" element={<BlockedFilms />} />
+        <Route path="/admin" element={<Admin />} />
       </Routes>
+      <SetPasswordModal />
     </>
   )
 }

@@ -4,8 +4,8 @@ import { hasLocalData } from '../lib/saved.js'
 import './AuthModal.css'
 
 export default function AuthModal({ onClose }) {
-  const { signIn, signUp } = useAuth()
-  const [mode, setMode] = useState('signin')   // 'signin' | 'signup'
+  const { signIn, signUp, resetPassword } = useAuth()
+  const [mode, setMode] = useState('signin')   // 'signin' | 'signup' | 'reset'
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
@@ -20,6 +20,16 @@ export default function AuthModal({ onClose }) {
   async function submit(e) {
     e.preventDefault()
     setBusy(true); setMsg(null)
+
+    if (mode === 'reset') {
+      const { error } = await resetPassword(email.trim())
+      setBusy(false)
+      setMsg(error
+        ? { type: 'err', text: error.message }
+        : { type: 'ok', text: 'Check your email for a password-reset link.' })
+      return
+    }
+
     const fn = mode === 'signup' ? signUp : signIn
     const { data, error } = await fn(email.trim(), password)
     setBusy(false)
@@ -37,9 +47,15 @@ export default function AuthModal({ onClose }) {
     <div className="auth-scrim" onMouseDown={e => { if (e.target === e.currentTarget) onClose() }}>
       <div className="auth-modal">
         <button className="auth-close" onClick={onClose} aria-label="Close">✕</button>
-        <h2 className="auth-title">{mode === 'signup' ? 'Create your account' : 'Welcome back'}</h2>
+        <h2 className="auth-title">
+          {mode === 'signup' ? 'Create your account'
+            : mode === 'reset' ? 'Reset your password'
+            : 'Welcome back'}
+        </h2>
         <p className="auth-sub">
-          {mode === 'signup' && hasLocalData()
+          {mode === 'reset'
+            ? "Enter your email and we'll send you a reset link."
+            : mode === 'signup' && hasLocalData()
             ? 'Your current saved films and constellations become your account.'
             : 'Save your constellations to the cloud and access them on any device.'}
         </p>
@@ -47,21 +63,36 @@ export default function AuthModal({ onClose }) {
         <form onSubmit={submit} className="auth-form">
           <input className="auth-input" type="email" required placeholder="Email"
                  value={email} onChange={e => setEmail(e.target.value)} autoFocus autoComplete="email" />
-          <input className="auth-input" type="password" required minLength={6}
-                 placeholder="Password (min 6 characters)" value={password}
-                 onChange={e => setPassword(e.target.value)}
-                 autoComplete={mode === 'signup' ? 'new-password' : 'current-password'} />
+          {mode !== 'reset' && (
+            <input className="auth-input" type="password" required minLength={6}
+                   placeholder="Password (min 6 characters)" value={password}
+                   onChange={e => setPassword(e.target.value)}
+                   autoComplete={mode === 'signup' ? 'new-password' : 'current-password'} />
+          )}
           {msg && <p className={`auth-msg auth-${msg.type}`}>{msg.text}</p>}
           <button className="auth-submit" type="submit" disabled={busy}>
-            {busy ? '…' : mode === 'signup' ? 'Sign up' : 'Sign in'}
+            {busy ? '…' : mode === 'signup' ? 'Sign up' : mode === 'reset' ? 'Send reset link' : 'Sign in'}
           </button>
         </form>
 
-        <p className="auth-toggle">
-          {mode === 'signup' ? 'Already have an account?' : 'New here?'}{' '}
-          <button type="button" onClick={() => { setMode(mode === 'signup' ? 'signin' : 'signup'); setMsg(null) }}>
-            {mode === 'signup' ? 'Sign in' : 'Create one'}
+        {mode === 'signin' && (
+          <button type="button" className="auth-forgot"
+                  onClick={() => { setMode('reset'); setMsg(null) }}>
+            Forgot password?
           </button>
+        )}
+
+        <p className="auth-toggle">
+          {mode === 'reset' ? (
+            <button type="button" onClick={() => { setMode('signin'); setMsg(null) }}>← Back to sign in</button>
+          ) : (
+            <>
+              {mode === 'signup' ? 'Already have an account?' : 'New here?'}{' '}
+              <button type="button" onClick={() => { setMode(mode === 'signup' ? 'signin' : 'signup'); setMsg(null) }}>
+                {mode === 'signup' ? 'Sign in' : 'Create one'}
+              </button>
+            </>
+          )}
         </p>
       </div>
     </div>
