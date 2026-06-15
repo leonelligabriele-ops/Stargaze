@@ -89,6 +89,7 @@ def ensure_data() -> None:
         "index.json": os.environ.get("INDEX_URL"),
     }
     for name, url in targets.items():
+        url = (url or "").strip()   # tolerate trailing newline/spaces from env paste
         dest = DATA_DIR / name
         if dest.exists() or not url:
             continue
