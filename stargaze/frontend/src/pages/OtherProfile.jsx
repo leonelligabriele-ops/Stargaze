@@ -4,6 +4,7 @@ import NotificationBell from '../components/NotificationBell.jsx'
 import AuthButton from '../components/AuthButton.jsx'
 import FollowButton from '../components/FollowButton.jsx'
 import ConstellationGraph from '../components/ConstellationGraph.jsx'
+import HalfStars from '../components/HalfStars.jsx'
 import { getProfileByUsername, getFollowCounts } from '../lib/profiles.js'
 import { API } from '../lib/api.js'
 import './Profile.css'
@@ -13,9 +14,16 @@ function PublicConstellation({ films }) {
   const navigate = useNavigate()
   const [graph, setGraph] = useState(null)
   const [loading, setLoading] = useState(false)
+  const [selected, setSelected] = useState(null)
   const ids = useMemo(() => (films || []).map(f => f.id).join(','), [films])
+  const ratingById = useMemo(() => {
+    const m = {}
+    for (const f of films || []) if (f.user_rating != null) m[String(f.id)] = f.user_rating
+    return m
+  }, [films])
 
   useEffect(() => {
+    setSelected(null)
     if (!ids) { setGraph(null); return }
     let cancelled = false
     setLoading(true)
@@ -35,17 +43,57 @@ function PublicConstellation({ films }) {
       </div>
     )
   }
+
+  const rating = selected ? ratingById[String(selected.id)] : null
+
   return (
     <div className="collection-graph">
       {loading && !graph && <div className="collection-loading">Mapping their stars…</div>}
       {graph && graph.nodes?.length > 0 && (
         <ConstellationGraph
           data={graph}
-          selected={null}
-          onSelect={n => n && navigate(`/film/${n.id}`)}
+          selected={selected}
+          onSelect={setSelected}
           onExpand={() => {}}
-          hint="click a star to open the film"
+          hint="click a star to preview"
         />
+      )}
+
+      {selected && (
+        <aside className="node-panel" role="dialog">
+          <button className="node-close" onClick={() => setSelected(null)} aria-label="Close">✕</button>
+          <div className="node-head">
+            {selected.poster_url
+              ? <img className="node-poster" src={selected.poster_url} alt="" />
+              : <div className="node-poster node-poster--ph" style={{ '--accent': 'var(--brand-emerald)' }}>✦</div>}
+            <div className="node-meta">
+              <h3>{selected.title}</h3>
+              <p className="node-sub">
+                {selected.director || 'Unknown'}{selected.year ? ` · ${Math.trunc(selected.year)}` : ''}
+              </p>
+            </div>
+          </div>
+
+          <div className="node-rate">
+            <span className="mini-label">Their rating</span>
+            <div className="node-rate-row">
+              {rating != null ? (
+                <>
+                  <HalfStars value={rating} readOnly size="1.2rem" />
+                  <span className="rate-val">{rating} / 5</span>
+                </>
+              ) : (
+                <span className="rate-val">Not rated</span>
+              )}
+            </div>
+          </div>
+
+          <div className="node-actions">
+            <button className="np-secondary" onClick={() => navigate(`/film/${selected.id}`)}>
+              View details →
+            </button>
+          </div>
+        </aside>
       )}
     </div>
   )
