@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import NotificationBell from '../components/NotificationBell.jsx'
-import ProfileAvatar from '../components/ProfileAvatar.jsx'
 import AuthButton from '../components/AuthButton.jsx'
 import PersonRow from '../components/PersonRow.jsx'
 import { useAuth } from '../lib/auth.jsx'
@@ -37,7 +36,6 @@ export default function Connections() {
         <span className="profile-brand">Stargaze</span>
         <div className="profile-bar-right">
           <NotificationBell />
-          <ProfileAvatar />
           <AuthButton />
         </div>
       </header>

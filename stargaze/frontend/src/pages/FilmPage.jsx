@@ -3,7 +3,6 @@ import { useParams, useNavigate } from 'react-router-dom'
 import HalfStars from '../components/HalfStars.jsx'
 import SaveMenu from '../components/SaveMenu.jsx'
 import NotificationBell from '../components/NotificationBell.jsx'
-import ProfileAvatar from '../components/ProfileAvatar.jsx'
 import AuthButton from '../components/AuthButton.jsx'
 import { getReview, setReview, removeWatched, isBlocked, toggleBlocked } from '../lib/saved.js'
 import { API } from '../lib/api.js'
@@ -417,7 +416,6 @@ export default function FilmPage() {
             aria-pressed={blocked}
           >🚫</button>
           <NotificationBell />
-          <ProfileAvatar />
           <AuthButton />
         </div>
       </header>

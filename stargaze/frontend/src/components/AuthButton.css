@@ -12,7 +12,7 @@
 }
 .signin-btn:hover { background: var(--brand-emerald-d); }
 
-.auth-user { position: relative; }
+.auth-user { position: relative; display: inline-flex; }
 .auth-userbtn {
   width: 40px;
   height: 40px;
@@ -24,8 +24,11 @@
   cursor: pointer;
   display: grid;
   place-items: center;
+  overflow: hidden;
+  padding: 0;
 }
 .auth-userbtn:hover { border-color: var(--brand-emerald); }
+.auth-userbtn img { width: 100%; height: 100%; object-fit: cover; }
 
 .auth-menu {
   position: absolute;

@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { getProfile } from '../lib/saved.js'
 import NotificationBell from '../components/NotificationBell.jsx'
 import AuthButton from '../components/AuthButton.jsx'
 import SearchBar from '../components/SearchBar.jsx'
@@ -9,8 +8,6 @@ import './Home.css'
 export default function Home() {
   const [drawerOpen, setDrawerOpen] = useState(false)
   const navigate = useNavigate()
-  const profile = getProfile()
-  const avatarInitial = (profile.display_name || '?').trim()[0]?.toUpperCase() || '?'
 
   function search(q) {
     if (q) navigate(`/explore?q=${encodeURIComponent(q)}`)
@@ -38,11 +35,6 @@ export default function Home() {
 
         <div className="home-topbar-right">
           <NotificationBell />
-          <Link to="/profile" className="avatar" aria-label="Your profile">
-            {profile.avatar
-              ? <img src={profile.avatar} alt="" className="avatar-img" />
-              : avatarInitial}
-          </Link>
           <AuthButton />
         </div>
       </header>

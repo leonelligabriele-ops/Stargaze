@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import NotificationBell from '../components/NotificationBell.jsx'
-import ProfileAvatar from '../components/ProfileAvatar.jsx'
 import AuthButton from '../components/AuthButton.jsx'
 import FollowButton from '../components/FollowButton.jsx'
 import { getProfileByUsername, getFollowCounts } from '../lib/profiles.js'
@@ -34,7 +33,6 @@ export default function OtherProfile() {
       <span className="profile-brand">Stargaze</span>
       <div className="profile-bar-right">
         <NotificationBell />
-        <ProfileAvatar />
         <AuthButton />
       </div>
     </header>

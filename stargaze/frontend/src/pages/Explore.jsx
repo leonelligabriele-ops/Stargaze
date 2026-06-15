@@ -5,7 +5,6 @@ import FilterBar, { FILTER_KEYS } from '../components/FilterBar.jsx'
 import ConstellationGraph from '../components/ConstellationGraph.jsx'
 import MoviePanel from '../components/MoviePanel.jsx'
 import NotificationBell from '../components/NotificationBell.jsx'
-import ProfileAvatar from '../components/ProfileAvatar.jsx'
 import AuthButton from '../components/AuthButton.jsx'
 import { getBlockedIds } from '../lib/saved.js'
 import { API } from '../lib/api.js'
@@ -158,7 +157,7 @@ export default function Explore() {
         ) : (
           <FilterBar value={filterValue} onChange={onFiltersChange} />
         )}
-        <div className="explore-bell"><NotificationBell /><ProfileAvatar /><AuthButton /></div>
+        <div className="explore-bell"><NotificationBell /><AuthButton /></div>
       </header>
 
       <div className="workspace">
