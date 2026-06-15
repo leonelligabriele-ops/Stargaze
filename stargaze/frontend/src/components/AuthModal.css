@@ -1,0 +1,64 @@
+.auth-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(2, 4, 8, 0.82);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+}
+
+.auth-modal {
+  position: relative;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 16px;
+  padding: 28px 26px 22px;
+  width: min(380px, 94vw);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6);
+}
+.auth-close {
+  position: absolute; top: 12px; right: 14px;
+  background: transparent; border: none; color: var(--text-muted);
+  font-size: 1.05rem; cursor: pointer; line-height: 1;
+}
+.auth-close:hover { color: var(--text-primary); }
+
+.auth-title { font-size: 1.3rem; font-weight: 800; color: var(--text-primary); }
+.auth-sub { margin-top: 6px; font-size: 0.86rem; color: var(--text-muted); line-height: 1.45; }
+
+.auth-form { display: flex; flex-direction: column; gap: 10px; margin-top: 18px; }
+.auth-input {
+  background: var(--bg-input);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  padding: 11px 13px;
+  color: var(--text-primary);
+  font-size: 0.95rem;
+}
+.auth-input:focus { outline: none; border-color: var(--brand-emerald); }
+
+.auth-msg { font-size: 0.82rem; line-height: 1.4; margin: 2px 0; }
+.auth-err { color: #f87171; }
+.auth-ok { color: var(--brand-emerald); }
+
+.auth-submit {
+  margin-top: 4px;
+  background: var(--brand-emerald);
+  color: #04130d;
+  border: none; border-radius: 10px;
+  padding: 12px; font-size: 0.95rem; font-weight: 700;
+  cursor: pointer; transition: background 0.15s;
+}
+.auth-submit:hover:not(:disabled) { background: var(--brand-emerald-d); }
+.auth-submit:disabled { opacity: 0.6; cursor: default; }
+
+.auth-toggle { margin-top: 16px; font-size: 0.84rem; color: var(--text-muted); text-align: center; }
+.auth-toggle button {
+  background: none; border: none; cursor: pointer;
+  color: var(--brand-emerald); font-weight: 600; font-size: 0.84rem;
+}
+.auth-toggle button:hover { text-decoration: underline; }

@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom'
 import ConstellationGraph from '../components/ConstellationGraph.jsx'
 import HalfStars from '../components/HalfStars.jsx'
 import NotificationBell from '../components/NotificationBell.jsx'
+import AuthButton from '../components/AuthButton.jsx'
 import AvatarEditor from '../components/AvatarEditor.jsx'
 import FollowButton from '../components/FollowButton.jsx'
 import AddFilmsModal from '../components/AddFilmsModal.jsx'
@@ -385,6 +386,7 @@ export default function Profile() {
             🚫 Blocked{blockedCount ? ` (${blockedCount})` : ''}
           </button>
           <NotificationBell />
+          <AuthButton />
         </div>
       </header>
 

@@ -333,3 +333,48 @@ export function seedNotificationsOnce() {
   localStorage.setItem('stargaze:notif-seeded', '1')
   pushNotification('Welcome to Stargaze ✦ — save films and build your constellations.')
 }
+
+/* ───────────── Cloud sync helpers (account backup / restore) ───────────── */
+// Every persisted collection key, so an account can mirror the whole profile.
+const _ALL_KEYS = [
+  WATCHLIST_KEY, WATCHED_KEY, PROFILE_KEY, BLOCKED_KEY,
+  COLLECTIONS_KEY, FOLLOWING_KEY, NOTIFS_KEY,
+]
+
+/** Snapshot all persisted data as one plain object (for cloud backup). */
+export function exportState() {
+  const out = {}
+  for (const k of _ALL_KEYS) {
+    const v = localStorage.getItem(k)
+    if (v == null) continue
+    try { out[k] = JSON.parse(v) } catch { /* skip unparseable */ }
+  }
+  return out
+}
+
+/** Replace local data from a cloud snapshot, then notify the UI to re-render. */
+export function importState(state) {
+  for (const k of _ALL_KEYS) {
+    if (state && state[k] != null) localStorage.setItem(k, JSON.stringify(state[k]))
+    else localStorage.removeItem(k)
+  }
+  window.dispatchEvent(new Event(CHANGED_EVENT))
+}
+
+/** Wipe all per-user data (e.g. signing out on a shared device). */
+export function clearAllState() {
+  for (const k of _ALL_KEYS) localStorage.removeItem(k)
+  window.dispatchEvent(new Event(CHANGED_EVENT))
+}
+
+/** True when the user has any saved data worth syncing up to a new account. */
+export function hasLocalData() {
+  return _ALL_KEYS.some(k => {
+    const v = localStorage.getItem(k)
+    if (v == null) return false
+    try {
+      const parsed = JSON.parse(v)
+      return Array.isArray(parsed) ? parsed.length > 0 : Object.keys(parsed).length > 0
+    } catch { return false }
+  })
+}

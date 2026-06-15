@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { getProfile } from '../lib/saved.js'
 import NotificationBell from '../components/NotificationBell.jsx'
+import AuthButton from '../components/AuthButton.jsx'
 import SearchBar from '../components/SearchBar.jsx'
 import './Home.css'
 
@@ -42,6 +43,7 @@ export default function Home() {
               ? <img src={profile.avatar} alt="" className="avatar-img" />
               : avatarInitial}
           </Link>
+          <AuthButton />
         </div>
       </header>
 

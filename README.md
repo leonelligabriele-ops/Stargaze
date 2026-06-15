@@ -86,3 +86,31 @@ assets. Copy their asset download URLs.
   (then `CORS_ORIGINS` must include the Netlify origin).
 - Re-embedding the dataset later? Upload the new files to a new Release and update
   `EMBEDDINGS_URL` / `INDEX_URL`.
+
+## Accounts (optional — Supabase)
+
+Accounts let visitors **sign up / log in (email + password)** and have their saved
+films, ratings and constellations stored in the cloud and synced across devices. It's
+**optional**: with no Supabase env vars the app runs guest-only (localStorage), exactly
+as before. The FastAPI backend is not involved — auth + storage are handled by Supabase
+directly from the browser.
+
+**Setup:**
+1. Create a free project at [supabase.com](https://supabase.com).
+2. **SQL Editor** → paste [`supabase_schema.sql`](supabase_schema.sql) → **Run** (creates
+   the `user_state` table + row-level-security policies).
+3. **Authentication → Providers → Email** is on by default. For quick testing you can turn
+   off "Confirm email" (Authentication → Providers → Email) so sign-up logs in instantly.
+4. **Project Settings → API**: copy the **Project URL** and the **anon public** key.
+5. Set two env vars wherever the frontend builds/runs:
+   - local dev → `stargaze/frontend/.env.local`:
+     ```
+     VITE_SUPABASE_URL=https://<project>.supabase.co
+     VITE_SUPABASE_ANON_KEY=<anon public key>
+     ```
+   - Netlify → **Site settings → Environment variables** → add the same two → redeploy.
+
+When set, a **Sign in** button appears in the top bars. The anon key is safe to expose in
+the frontend — row-level security is what protects the data. How it works: on login the
+app pulls the user's cloud copy (or seeds it from their current guest data on a brand-new
+account), then pushes every change up (debounced). Last write wins across devices.
