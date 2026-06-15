@@ -16,9 +16,9 @@ function PublicConstellation({ films }) {
   const [loading, setLoading] = useState(false)
   const [selected, setSelected] = useState(null)
   const ids = useMemo(() => (films || []).map(f => f.id).join(','), [films])
-  const ratingById = useMemo(() => {
+  const metaById = useMemo(() => {
     const m = {}
-    for (const f of films || []) if (f.user_rating != null) m[String(f.id)] = f.user_rating
+    for (const f of films || []) m[String(f.id)] = { rating: f.user_rating, comment: f.comment }
     return m
   }, [films])
 
@@ -44,7 +44,8 @@ function PublicConstellation({ films }) {
     )
   }
 
-  const rating = selected ? ratingById[String(selected.id)] : null
+  const meta = selected ? (metaById[String(selected.id)] || {}) : {}
+  const rating = meta.rating
 
   return (
     <div className="collection-graph">
@@ -86,6 +87,7 @@ function PublicConstellation({ films }) {
                 <span className="rate-val">Not rated</span>
               )}
             </div>
+            {meta.comment && <p className="node-comment">“{meta.comment}”</p>}
           </div>
 
           <div className="node-actions">

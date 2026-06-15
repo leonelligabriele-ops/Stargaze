@@ -38,7 +38,8 @@ export async function pushPublicFilms(userId, state) {
   const watched = Object.values(data['stargaze:watched'] || {})
   const films = watched.slice(0, 200).map(f => ({
     id: f.id, title: f.title, year: f.year, director: f.director,
-    poster_url: f.poster_url, genres: f.genres, user_rating: f.user_rating ?? null,
+    poster_url: f.poster_url, genres: f.genres,
+    user_rating: f.user_rating ?? null, comment: f.comment || null,
   }))
   await supabase.from('profiles').update({ films }).eq('id', userId)
 }
