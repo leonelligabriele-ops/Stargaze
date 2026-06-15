@@ -176,11 +176,10 @@ export function removeBlocked(id) {
 
 /* ───────────────────────── Profile ───────────────────────── */
 const DEFAULT_PROFILE = {
-  display_name: 'Gabriele',
+  display_name: 'Stargazer',
   bio: 'Charting films through the cosmos.',
   avatar: null,        // data-URL of an uploaded picture
-  following: 0,        // placeholder — no social backend
-  followers: 0,        // placeholder — no social backend
+  followers: 0,        // real count comes from the social graph when signed in
 }
 
 export function getProfile() {
@@ -189,6 +188,14 @@ export function getProfile() {
 
 export function setProfile(patch) {
   write(PROFILE_KEY, { ...getProfile(), ...patch })
+}
+
+/** Give a fresh account a sensible name from its email, unless one is set. */
+export function seedDisplayNameFromEmail(email) {
+  const stored = read(PROFILE_KEY)
+  if (stored.display_name) return            // user already has a name → keep it
+  const local = (email || '').split('@')[0]
+  if (local) setProfile({ display_name: local.charAt(0).toUpperCase() + local.slice(1) })
 }
 
 /* ───────────────── Custom constellations (user-created lists) ───────────────── */

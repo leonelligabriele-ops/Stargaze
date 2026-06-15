@@ -1,7 +1,13 @@
 import { createContext, useContext, useEffect, useRef, useState } from 'react'
 import { supabase, authEnabled } from './supabase.js'
 import { startSync, stopSync } from './cloudSync.js'
-import { clearAllState } from './saved.js'
+import { clearAllState, seedDisplayNameFromEmail } from './saved.js'
+
+// Pull cloud data, then give a brand-new account a name from its email.
+async function onSignedIn(user) {
+  await startSync(user.id)
+  seedDisplayNameFromEmail(user.email)
+}
 
 const AuthCtx = createContext({ user: null, loading: false, enabled: false })
 
@@ -18,14 +24,14 @@ export function AuthProvider({ children }) {
       const u = data.session?.user ?? null
       setUser(u)
       setLoading(false)
-      if (u && syncedId.current !== u.id) { syncedId.current = u.id; startSync(u.id) }
+      if (u && syncedId.current !== u.id) { syncedId.current = u.id; onSignedIn(u) }
     })
 
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
       const u = session?.user ?? null
       setUser(u)
       if (event === 'PASSWORD_RECOVERY') setRecovery(true)
-      if (u && syncedId.current !== u.id) { syncedId.current = u.id; startSync(u.id) }
+      if (u && syncedId.current !== u.id) { syncedId.current = u.id; onSignedIn(u) }
       if (event === 'SIGNED_OUT') syncedId.current = null
     })
 
