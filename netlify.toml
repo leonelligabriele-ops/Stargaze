@@ -1,5 +1,5 @@
 # Netlify config — builds the Vite frontend and proxies the API to Render.
-# Replace <render-service> with your actual Render service name once created.
+# Proxy target is the live Render service (update it if you rename the service).
 
 [build]
   base    = "stargaze/frontend"
