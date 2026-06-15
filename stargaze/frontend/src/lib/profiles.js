@@ -124,6 +124,18 @@ export async function getFollowers(userId) {
   return (data || []).map(r => r.profiles).filter(Boolean)
 }
 
+/** Users who have graded a film, newest first (with their rating + profile). */
+export async function getFilmRaters(filmId) {
+  if (!supabase || !filmId) return []
+  const { data } = await supabase
+    .from('ratings')
+    .select('rating, user:profiles!ratings_user_id_fkey(username, display_name, avatar)')
+    .eq('film_id', String(filmId))
+    .order('created_at', { ascending: false })
+    .limit(30)
+  return (data || []).map(r => ({ rating: r.rating, ...r.user })).filter(u => u.username)
+}
+
 /** People `userId` follows (joined to their profile). */
 export async function getFollowingProfiles(userId) {
   if (!supabase || !userId) return []

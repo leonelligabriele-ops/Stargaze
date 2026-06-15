@@ -159,3 +159,27 @@ $$;
 drop trigger if exists follows_notify on public.follows;
 create trigger follows_notify after insert on public.follows
   for each row execute function public.notify_on_follow();
+
+
+-- ───────────────── Public film ratings (who graded what) ─────────────────
+-- One row per (user, film) they've graded; world-readable so a film can show
+-- the avatars of people who rated it.
+create table if not exists public.ratings (
+  user_id    uuid not null references public.profiles (id) on delete cascade,
+  film_id    text not null,
+  rating     numeric,
+  created_at timestamptz not null default now(),
+  primary key (user_id, film_id)
+);
+alter table public.ratings enable row level security;
+
+drop policy if exists "ratings: public read" on public.ratings;
+create policy "ratings: public read" on public.ratings for select using (true);
+drop policy if exists "ratings: insert own" on public.ratings;
+create policy "ratings: insert own" on public.ratings for insert with check (auth.uid() = user_id);
+drop policy if exists "ratings: update own" on public.ratings;
+create policy "ratings: update own" on public.ratings for update using (auth.uid() = user_id);
+drop policy if exists "ratings: delete own" on public.ratings;
+create policy "ratings: delete own" on public.ratings for delete using (auth.uid() = user_id);
+
+create index if not exists ratings_film_idx on public.ratings (film_id);

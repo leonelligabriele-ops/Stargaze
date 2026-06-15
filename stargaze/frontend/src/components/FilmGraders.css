@@ -1,0 +1,25 @@
+.graders { display: flex; align-items: center; gap: 10px; }
+.graders-label { font-size: 0.78rem; color: var(--text-muted); }
+
+.graders-row { display: flex; align-items: center; }
+.grader-av,
+.grader-more {
+  width: 28px; height: 28px; border-radius: 50%;
+  display: grid; place-items: center;
+  font-size: 0.72rem; font-weight: 700;
+  margin-left: -8px;
+  border: 2px solid var(--bg-base, #0b0f16);
+  overflow: hidden;
+}
+.grader-av:first-child { margin-left: 0; }
+.grader-av {
+  background: var(--brand-emerald); color: #04130d;
+  text-decoration: none; cursor: pointer;
+  transition: transform 0.12s;
+}
+.grader-av:hover { transform: translateY(-2px); z-index: 2; }
+.grader-av img { width: 100%; height: 100%; object-fit: cover; }
+.grader-more {
+  background: var(--bg-input); color: var(--text-primary);
+  cursor: default;
+}

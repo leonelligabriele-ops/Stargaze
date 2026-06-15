@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import HalfStars from '../components/HalfStars.jsx'
+import FilmGraders from '../components/FilmGraders.jsx'
 import SaveMenu from '../components/SaveMenu.jsx'
 import NotificationBell from '../components/NotificationBell.jsx'
 import AuthButton from '../components/AuthButton.jsx'
@@ -460,6 +461,8 @@ export default function FilmPage() {
             {(myRating || comment) && (
               <button className="grade-remove" onClick={onRemoveReview}>Remove from Watched</button>
             )}
+
+            <FilmGraders filmId={movie.id} />
           </div>
         </div>
 

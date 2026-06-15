@@ -27,19 +27,37 @@ async function _push(userId, state) {
   })
   if (error) console.warn('[sync] push failed:', error.message)
   await pushPublicFilms(userId, state)
+  await pushPublicRatings(userId, state)
 }
 
 /** Mirror the user's watched films to their public profile so others can see
- * their constellation. Trimmed (no ratings/comments). */
+ * their constellation (includes their rating, no comments). */
 export async function pushPublicFilms(userId, state) {
   if (!supabase || !userId) return
   const data = state || exportState()
   const watched = Object.values(data['stargaze:watched'] || {})
   const films = watched.slice(0, 200).map(f => ({
-    id: f.id, title: f.title, year: f.year,
-    director: f.director, poster_url: f.poster_url, genres: f.genres,
+    id: f.id, title: f.title, year: f.year, director: f.director,
+    poster_url: f.poster_url, genres: f.genres, user_rating: f.user_rating ?? null,
   }))
   await supabase.from('profiles').update({ films }).eq('id', userId)
+}
+
+/** Mirror the user's graded films to the public ratings table (powers the
+ * "graded by" avatars on a film). Upserts current grades, removes the rest. */
+export async function pushPublicRatings(userId, state) {
+  if (!supabase || !userId) return
+  const data = state || exportState()
+  const graded = Object.values(data['stargaze:watched'] || {}).filter(f => f.user_rating != null)
+  const ids = graded.map(f => String(f.id))
+  if (ids.length) {
+    await supabase.from('ratings').upsert(
+      graded.map(f => ({ user_id: userId, film_id: String(f.id), rating: f.user_rating })),
+    )
+    await supabase.from('ratings').delete().eq('user_id', userId).not('film_id', 'in', `(${ids.join(',')})`)
+  } else {
+    await supabase.from('ratings').delete().eq('user_id', userId)
+  }
 }
 
 function _schedulePush() {

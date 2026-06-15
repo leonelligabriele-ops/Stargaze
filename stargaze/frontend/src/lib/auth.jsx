@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useRef, useState } from 'react'
 import { supabase, authEnabled } from './supabase.js'
-import { startSync, stopSync, pushPublicFilms } from './cloudSync.js'
+import { startSync, stopSync, pushPublicFilms, pushPublicRatings } from './cloudSync.js'
 import { clearAllState, seedDisplayNameFromEmail, getProfile } from './saved.js'
 import { ensureProfile } from './profiles.js'
 
@@ -11,6 +11,7 @@ async function onSignedIn(user) {
   seedDisplayNameFromEmail(user.email)
   await ensureProfile(user, getProfile())
   await pushPublicFilms(user.id)
+  await pushPublicRatings(user.id)
 }
 
 const AuthCtx = createContext({ user: null, loading: false, enabled: false })

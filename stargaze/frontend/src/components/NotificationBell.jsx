@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   getNotifications, unreadCount, markNotificationsRead,
   clearNotifications, seedNotificationsOnce, COLLECTIONS_EVENT,
@@ -26,6 +27,7 @@ function serverText(n) {
 
 export default function NotificationBell() {
   const { enabled, user } = useAuth()
+  const navigate = useNavigate()
   const [open, setOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [server, setServer] = useState([])     // cross-user notifications from the DB
@@ -64,6 +66,7 @@ export default function NotificationBell() {
   // Server follow-notifications respect the "Follows" toggle too.
   const serverItems = (prefs.follows === false ? [] : server).map(n => ({
     id: `s${n.id}`, text: serverText(n), time: n.created_at, read: n.read,
+    to: n.actor?.username ? `/u/${n.actor.username}` : null,
   }))
   const notifs = [...getNotifications(), ...serverItems]
     .sort((a, b) => new Date(b.time) - new Date(a.time))
@@ -138,7 +141,11 @@ export default function NotificationBell() {
           ) : (
             <ul className="bell-list">
               {notifs.map(n => (
-                <li key={n.id} className={n.read ? '' : 'unread'}>
+                <li
+                  key={n.id}
+                  className={`${n.read ? '' : 'unread'} ${n.to ? 'clickable' : ''}`}
+                  onClick={n.to ? () => { setOpen(false); navigate(n.to) } : undefined}
+                >
                   <p>{n.text}</p>
                   <span className="bell-time">{timeAgo(n.time)}</span>
                 </li>

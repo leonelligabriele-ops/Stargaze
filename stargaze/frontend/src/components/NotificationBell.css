@@ -96,5 +96,7 @@
 }
 .bell-list li:last-child { border-bottom: none; }
 .bell-list li.unread { background: rgba(16,185,129,.06); }
+.bell-list li.clickable { cursor: pointer; }
+.bell-list li.clickable:hover { background: rgba(99,102,241,.12); }
 .bell-list li p { font-size: .85rem; line-height: 1.45; color: var(--text-primary); }
 .bell-time { font-size: .72rem; color: var(--text-faint); }
