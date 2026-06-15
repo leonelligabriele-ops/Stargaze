@@ -1,10 +1,12 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import HalfStars from '../components/HalfStars.jsx'
-import { isSaved, toggleSaved, getReview, setReview, removeWatched, isBlocked, toggleBlocked } from '../lib/saved.js'
+import SaveMenu from '../components/SaveMenu.jsx'
+import NotificationBell from '../components/NotificationBell.jsx'
+import ProfileAvatar from '../components/ProfileAvatar.jsx'
+import { getReview, setReview, removeWatched, isBlocked, toggleBlocked } from '../lib/saved.js'
+import { API } from '../lib/api.js'
 import './FilmPage.css'
-
-const API = '/api'
 
 const GENRE_COLOR = {
   'Action': '#ef4444', 'Adventure': '#f97316', 'Animation': '#fbbf24',
@@ -271,7 +273,6 @@ export default function FilmPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [tab, setTab] = useState('CAST')
-  const [saved, setSaved] = useState(false)
   const [shared, setShared] = useState(false)
   const [region, setRegion] = useState(DEFAULT_REGION)
 
@@ -294,7 +295,7 @@ export default function FilmPage() {
 
     fetch(`${API}/movie/${id}`)
       .then(r => { if (!r.ok) throw new Error(r.status === 404 ? 'Film not found' : `Server error ${r.status}`); return r.json() })
-      .then(d => { if (!cancelled) { setMovie(d); setSaved(isSaved(d.id)); setBlocked(isBlocked(d.id)) } })
+      .then(d => { if (!cancelled) { setMovie(d); setBlocked(isBlocked(d.id)) } })
       .catch(e => { if (!cancelled) setError(e.message) })
       .finally(() => { if (!cancelled) setLoading(false) })
 
@@ -403,13 +404,7 @@ export default function FilmPage() {
         </button>
 
         <div className="topbar-actions">
-          <button
-            className={`pill-btn ${saved ? 'is-saved' : ''}`}
-            onClick={() => setSaved(toggleSaved(movie))}
-            aria-pressed={saved}
-          >
-            {saved ? '★ Saved' : '🔖 Save'}
-          </button>
+          <SaveMenu movie={movie} variant="pill" />
           <button className="icon-pill" onClick={onShare} aria-label="Share">
             {shared ? '✓' : '⤴'}
           </button>
@@ -420,6 +415,8 @@ export default function FilmPage() {
             aria-label="Block film"
             aria-pressed={blocked}
           >🚫</button>
+          <NotificationBell />
+          <ProfileAvatar />
         </div>
       </header>
 

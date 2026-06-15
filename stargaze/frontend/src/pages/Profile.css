@@ -27,8 +27,8 @@
   background: var(--wordmark-grad);
   -webkit-background-clip: text; background-clip: text; color: transparent;
 }
+.profile-bar-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
 .blocked-link {
-  margin-left: auto;
   display: inline-flex; align-items: center; gap: 6px;
   background: var(--bg-elevated);
   border: 1px solid var(--border-subtle);
@@ -59,15 +59,26 @@
   justify-content: space-between;
 }
 .pc-avatar {
+  position: relative;
   width: 72px; height: 72px;
   border-radius: 18px;            /* square avatar, soft corners */
+  overflow: hidden;
   background: var(--brand-emerald);
   color: #04130d;
   display: flex; align-items: center; justify-content: center;
   font-size: 2rem; font-weight: 800;
   box-shadow: 0 0 0 5px rgba(16,185,129,.12);
-  user-select: none;
+  -webkit-user-select: none; user-select: none;
+  cursor: pointer;
 }
+.pc-avatar-img { width: 100%; height: 100%; object-fit: cover; }
+.pc-avatar-edit {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  background: rgba(4,6,10,.6); color: #fff;
+  font-size: .72rem; text-align: center; padding: 3px 0;
+  opacity: 0; transition: opacity .15s;
+}
+.pc-avatar:hover .pc-avatar-edit { opacity: 1; }
 .edit-btn {
   background: transparent;
   border: 1px solid var(--border-subtle);
@@ -80,6 +91,22 @@
 
 .pc-name { font-size: 1.7rem; font-weight: 800; color: var(--text-primary); line-height: 1.1; }
 .pc-bio { font-size: .95rem; color: var(--text-muted); line-height: 1.5; max-width: 60ch; }
+
+/* Name on the left, counters justified right on the same level */
+.pc-name-row {
+  display: flex; align-items: flex-end; justify-content: space-between;
+  gap: 16px; flex-wrap: wrap;
+}
+.pc-counters { display: flex; gap: 22px; margin-left: auto; }
+.counter {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  background: none; border: none; cursor: pointer;
+  padding: 4px 6px; border-radius: 9px; transition: background .15s;
+}
+.counter:hover { background: var(--bg-input); }
+.counter:hover .c-num { color: var(--brand-emerald); }
+.c-num { font-size: 1.35rem; font-weight: 800; color: var(--text-primary); line-height: 1; }
+.c-label { font-size: .66rem; font-weight: 600; color: var(--text-muted); white-space: nowrap; }
 
 .pc-edit { display: flex; flex-direction: column; gap: 10px; }
 .pc-input {
@@ -115,6 +142,60 @@
   border-radius: 20px; padding: 6px 14px; font-size: .82rem;
 }
 
+/* ---------------- People to follow ---------------- */
+.people-section { margin-top: 32px; }
+.people-row { display: flex; flex-wrap: wrap; gap: 12px; }
+.person-card {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 12px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  flex: 1 1 240px; min-width: 240px;
+}
+.person-main {
+  display: flex; align-items: center; gap: 11px;
+  text-decoration: none; flex: 1; min-width: 0;
+}
+.person-av {
+  width: 42px; height: 42px; border-radius: 50%;
+  display: grid; place-items: center;
+  font-weight: 700; color: #04130d; flex-shrink: 0;
+}
+.person-info { display: flex; flex-direction: column; min-width: 0; }
+.person-name {
+  font-weight: 600; color: var(--text-primary);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.person-sub { font-size: .76rem; color: var(--text-muted); }
+.demo-note { margin-top: 14px; font-size: .76rem; color: var(--text-faint); }
+
+/* ---------------- Connections (following / followers) ---------------- */
+.connections { margin-top: 8px; }
+.conn-tabs { display: flex; gap: 8px; margin-bottom: 20px; }
+.conn-tab {
+  display: inline-flex; align-items: center; gap: 7px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-muted);
+  border-radius: 999px; padding: 9px 18px;
+  font-size: .9rem; font-weight: 600; cursor: pointer;
+  transition: background .15s, color .15s, border-color .15s;
+}
+.conn-tab:hover { color: var(--text-primary); }
+.conn-tab.active {
+  background: var(--brand-emerald); color: #04130d; border-color: var(--brand-emerald);
+}
+.conn-tab.active .cs-count { background: rgba(0,0,0,.18); color: #04130d; }
+.conn-empty {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 14px; text-align: center; padding: 60px 20px;
+  background: rgba(10,14,20,.45);
+  border: 1px dashed var(--border-subtle);
+  border-radius: 16px;
+}
+.conn-empty p { max-width: 40ch; font-size: .95rem; color: var(--text-muted); }
+
 /* ---------------- Constellation section ---------------- */
 .constellation-section { margin-top: 36px; }
 .cs-head {
@@ -125,7 +206,7 @@
 .cs-sub { font-size: .9rem; color: var(--text-muted); margin-top: 2px; }
 
 .cs-tabs {
-  display: inline-flex; gap: 4px;
+  display: inline-flex; flex-wrap: wrap; gap: 4px; align-items: center;
   background: var(--bg-elevated);
   border: 1px solid var(--border-subtle);
   border-radius: 11px; padding: 4px;
@@ -145,6 +226,53 @@
   border-radius: 20px; padding: 1px 8px; min-width: 22px; text-align: center;
 }
 .cs-tab.active .cs-count { background: rgba(16,185,129,.2); color: var(--brand-emerald); }
+
+/* + create new constellation */
+.cs-new { position: relative; display: inline-flex; }
+.cs-add {
+  width: 32px; height: 32px;
+  display: flex; align-items: center; justify-content: center;
+  background: transparent; border: none; cursor: pointer;
+  color: var(--brand-emerald); font-size: 1.15rem; border-radius: 8px;
+  transition: background .15s;
+}
+.cs-add:hover { background: var(--bg-input); }
+.cs-new-pop {
+  position: absolute; top: calc(100% + 8px); right: 0; z-index: 40;
+  width: 260px;
+  background: var(--bg-elevated); border: 1px solid var(--border-subtle);
+  border-radius: 12px; padding: 12px;
+  display: flex; flex-direction: column; gap: 8px;
+  box-shadow: 0 18px 44px rgba(0,0,0,.5);
+}
+.cs-new-input {
+  background: var(--bg-input); border: 1px solid var(--border-subtle);
+  border-radius: 8px; padding: 9px 11px; color: var(--text-primary);
+  font-size: .85rem; font-family: inherit; outline: none;
+}
+.cs-new-input:focus { border-color: var(--border-glow); }
+.cs-new-go { width: 100%; }
+
+.cs-actions {
+  display: flex; align-items: center; gap: 16px;
+  margin: -4px 0 14px;
+}
+.cs-addfilms {
+  background: var(--brand-emerald); color: #04130d;
+  border: none; border-radius: 999px;
+  padding: 9px 20px; font-size: .88rem; font-weight: 700; cursor: pointer;
+  transition: background .15s;
+}
+.cs-addfilms:hover { background: var(--brand-emerald-d); }
+.cs-delete {
+  margin-left: auto;
+  background: transparent; border: none; color: #f87171;
+  font-size: .82rem; font-weight: 600; cursor: pointer;
+}
+.cs-delete:hover { text-decoration: underline; }
+.empty-add {
+  padding: 10px 22px; border-radius: 999px; font-weight: 700;
+}
 
 /* graph area */
 .collection-graph {

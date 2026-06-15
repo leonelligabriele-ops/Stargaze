@@ -27,7 +27,6 @@ import numpy as np
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from rapidfuzz import fuzz, process, utils
-from sentence_transformers import SentenceTransformer
 
 import constellation as C
 import filters as F
@@ -49,17 +48,28 @@ def _load_env_local() -> None:
 
 _load_env_local()
 
+# ── Lite mode ─────────────────────────────────────────────────────────────────
+# When STARGAZE_LITE is set, the heavy embedding model (sentence-transformers +
+# PyTorch) is never loaded, so the API fits a small/free host. Free-text queries
+# fall back to a lexical centre instead of on-the-fly semantic encoding; every
+# path that uses the *precomputed* embeddings (title/director/person search,
+# expand/similar, filters, saved constellations) works exactly the same.
+LITE = bool(os.environ.get("STARGAZE_LITE"))
+
 # ── Model ─────────────────────────────────────────────────────────────────────
 MODEL_NAME = "BAAI/bge-small-en-v1.5"
 # BGE asymmetric-retrieval prefix: applied to queries, NOT to stored document text.
 BGE_QUERY_PREFIX = "Represent this sentence for searching relevant passages: "
 
-_model: SentenceTransformer | None = None
+_model = None
 
 
-def get_model() -> SentenceTransformer:
+def get_model():
+    """Lazily load the sentence-transformers model. Imported here (not at module
+    top) so lite deployments don't need torch/sentence-transformers installed."""
     global _model
     if _model is None:
+        from sentence_transformers import SentenceTransformer
         _model = SentenceTransformer(MODEL_NAME)
     return _model
 
@@ -70,8 +80,11 @@ _title_row_map:  list[int] = []     # aligned row index for each entry above
 _director_names: list[str] = []     # unique director names (for rapidfuzz)
 _director_to_rows: dict[str, list[int]] = {}  # name → rows sorted by vote_count desc
 _person_to_rows: dict[str, list[int]] = {}    # lower(name) → rows (any role) by vote_count
+_person_names: list[str] = []       # unique people names, display-cased
+_person_roles: dict[str, set[str]] = {}        # lower(name) -> role labels
 _filter_index: F.FilterIndex | None = None    # per-row facets for filtering
 _hubness: np.ndarray | None = None            # per-film hubness, 0..1
+_lite_text: list[str] = []                    # per-row search haystack (lite fallback)
 
 
 def _vote_count(m: dict) -> float:
@@ -122,20 +135,66 @@ def _build_lookup_tables() -> None:
 
     # Reverse index: any person (director, cast, writer, DoP, producer) → their films.
     people: dict[str, list[int]] = defaultdict(list)
+    person_display: dict[str, str] = {}
+    person_roles: dict[str, set[str]] = defaultdict(set)
+
+    def add_person(row_i: int, name: str | None, role: str) -> None:
+        c = _clean_str(name)
+        if not c:
+            return
+        key = c.lower()
+        person_display.setdefault(key, c)
+        person_roles[key].add(role)
+        people[key].append(row_i)
+
     for i, m in enumerate(index):
-        names: set[str] = set()
-        d = _clean_str(m.get("director"))
-        if d:
-            names.add(d)
+        add_person(i, _clean_str(m.get("director")), "Director")
         for key in ("cast", "writers", "dop", "producers"):
+            role = {
+                "cast": "Actor",
+                "writers": "Writer",
+                "dop": "Cinematographer",
+                "producers": "Producer",
+            }[key]
             for nm in (m.get(key) or []):
-                c = _clean_str(nm)
-                if c:
-                    names.add(c)
-        for nm in names:
-            people[nm.lower()].append(i)
+                add_person(i, nm, role)
+
     for nm, rows in people.items():
-        _person_to_rows[nm] = sorted(rows, key=lambda i: _vote_count(index[i]), reverse=True)
+        deduped_rows = list(dict.fromkeys(rows))
+        _person_to_rows[nm] = sorted(deduped_rows, key=lambda i: _vote_count(index[i]), reverse=True)
+    _person_names.extend(person_display.values())
+    _person_roles.update(person_roles)
+
+    # Lite lexical index: a lowercased haystack per row (title + keywords +
+    # genres + director) so free-text queries can be centred without the model.
+    if LITE:
+        for m in index:
+            _lite_text.append(" ".join([
+                _clean_str(m.get("title")) or "",
+                _clean_str(m.get("original_title")) or "",
+                _clean_str(m.get("director")) or "",
+                " ".join(m.get("keywords") or []),
+                " ".join(m.get("genres") or []),
+            ]).lower())
+
+
+def _lexical_center(q: str, pool, index) -> int | None:
+    """Best matching row for a free-text query by token overlap over the lite
+    haystack, tie-broken by vote count. Used in LITE mode to pick a centre film
+    in place of semantic query encoding."""
+    toks = [t for t in re.split(r"[^a-z0-9]+", q.lower()) if len(t) > 2]
+    if not toks or not _lite_text:
+        return None
+    rows = pool if pool is not None else range(len(index))
+    best, best_key = None, (0, -1.0)
+    for i in rows:
+        i = int(i)
+        score = sum(1 for t in toks if t in _lite_text[i])
+        if score:
+            key = (score, _vote_count(index[i]))
+            if key > best_key:
+                best, best_key = i, key
+    return best
 
 
 def _build_hubness(emb: np.ndarray, n_anchors: int = 2500, k: int = 25) -> np.ndarray:
@@ -254,8 +313,9 @@ async def lifespan(app: FastAPI):
         global _filter_index, _hubness
         _filter_index = F.FilterIndex(index)
         _hubness = _build_hubness(emb)
-        get_model()
-        print("Stargaze ready.")
+        if not LITE:
+            get_model()
+        print("Stargaze ready." + (" (lite mode — no embedding model)" if LITE else ""))
     except RuntimeError as e:
         print(f"WARNING at startup: {e}")
     yield
@@ -263,9 +323,19 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Stargaze API", lifespan=lifespan)
 
+# Allowed browser origins for direct cross-origin calls. Defaults to the local
+# Vite dev server; set CORS_ORIGINS (comma-separated) in production, e.g.
+# "https://stargaze.netlify.app". Not needed when the frontend is proxied
+# same-origin (Netlify redirect), but harmless and useful for direct calls.
+_cors_origins = [
+    o.strip()
+    for o in os.environ.get("CORS_ORIGINS", "http://localhost:5173").split(",")
+    if o.strip()
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=_cors_origins,
     allow_methods=["GET"],
     allow_headers=["*"],
 )
@@ -375,11 +445,28 @@ def search(
             query_vec     = emb[forced_center].copy()
             search_type   = "director"
 
-    # c) Semantic / keyword expansion
+    # c) Free-text query → semantic encoding, or a lexical centre in lite mode.
     if query_vec is None:
-        query_vec = get_model().encode(
-            [_expand_query(q)], normalize_embeddings=True, convert_to_numpy=True,
-        )[0]
+        if LITE:
+            forced_center = _lexical_center(q, allowed, index)
+            if forced_center is None:
+                # No lexical hit → popularity-weighted browse so there's still a map.
+                pool = [int(i) for i in (allowed if allowed is not None else range(N))
+                        if int(i) not in blocked_rows]
+                if not pool:
+                    return dict(_EMPTY_GRAPH)
+                weights = np.array([_vote_count(index[i]) or 1.0 for i in pool], dtype=float)
+                weights /= weights.sum()
+                chosen = rng.choice(pool, size=min(K, len(pool)), replace=False, p=weights)
+                return C.build_constellation_from_ids(
+                    [str(index[int(i)]["tmdb_id"]) for i in chosen], ctx_type="browse",
+                )
+            query_vec   = emb[forced_center].copy()
+            search_type = "title"
+        else:
+            query_vec = get_model().encode(
+                [_expand_query(q)], normalize_embeddings=True, convert_to_numpy=True,
+            )[0]
 
     # d) Diverse, hub-penalised retrieval (within the allowed pool if filtered)
     if director_bias is not None and allowed is None:
@@ -409,6 +496,107 @@ def search(
         "query":         q,
         "director_name": director_bias,
     })
+
+
+# ── Autocomplete: live title + director suggestions as the user types ───────────
+@app.get("/suggest")
+def suggest(q: str = Query("", description="Partial title or person name")):
+    q = q.strip()
+    if len(q) < 2:
+        return {"movies": [], "directors": [], "people": []}
+    index, _, _ = load_data()
+
+    def _year(m):
+        y = m.get("year")
+        return int(y) if isinstance(y, (int, float)) and y == y else None
+
+    # Movies — substring/prefix-first (true autocomplete), fuzzy only as fallback.
+    movies: list[dict] = []
+    seen: set[int] = set()
+    ql = q.lower()
+
+    def _add_movie(row: int) -> None:
+        if row in seen:
+            return
+        seen.add(row)
+        m = index[row]
+        movies.append({
+            "id":         str(m["tmdb_id"]),
+            "title":      _clean_str(m.get("title")),
+            "year":       _year(m),
+            "director":   _clean_str(m.get("director")),
+            "poster_url": C._poster_url(m.get("poster_path")),
+        })
+
+    # 1) Titles containing the query — prefix matches first, then by popularity.
+    sub: list[tuple] = []
+    for pos, choice in enumerate(_title_choices):
+        p = choice.lower().find(ql)
+        if p == -1:
+            continue
+        row = _title_row_map[pos]
+        sub.append((0 if p == 0 else 1, -_vote_count(index[row]), row))
+    sub.sort(key=lambda t: (t[0], t[1]))
+    for _, _, row in sub:
+        _add_movie(row)
+        if len(movies) >= 6:
+            break
+
+    # 2) Fuzzy fill for typos when too few substring hits.
+    if len(movies) < 6 and _title_choices:
+        for _, score, pos in process.extract(
+            q, _title_choices, scorer=fuzz.WRatio,
+            processor=utils.default_process, limit=20,
+        ):
+            if score < 80:
+                continue
+            _add_movie(_title_row_map[pos])
+            if len(movies) >= 6:
+                break
+
+    # People — only when the typed letters actually appear in the name
+    # (substring, prefix-first, ranked by prominence). Movies take priority,
+    # so a name only surfaces on a real match, not a loose fuzzy guess.
+    people: list[dict] = []
+    pseen: set[str] = set()
+
+    def _add_person(name: str) -> None:
+        key = name.lower()
+        if key in pseen:
+            return
+        pseen.add(key)
+        people.append({
+            "name":  name,
+            "count": len(_person_to_rows.get(key, [])),
+            "roles": sorted(_person_roles.get(key, [])),
+        })
+
+    psub: list[tuple] = []
+    for name in _person_names:
+        if ql not in name.lower():
+            continue
+        cnt = len(_person_to_rows.get(name.lower(), []))
+        psub.append((-cnt, name))            # most prominent (most films) first
+    psub.sort(key=lambda t: t[0])
+    for _, name in psub:
+        _add_person(name)
+        if len(people) >= 4:
+            break
+
+    # Typo fallback: only if the letters matched nobody, allow a strong fuzzy hit.
+    if not people and _person_names:
+        for name, score, _ in process.extract(
+            q, _person_names, scorer=fuzz.WRatio,
+            processor=utils.default_process, limit=6,
+        ):
+            if score < 90:
+                continue
+            _add_person(name)
+            if len(people) >= 4:
+                break
+
+    directors = [p for p in people if "Director" in p.get("roles", [])][:4]
+    return {"movies": movies, "directors": directors, "people": people}
 
 
 # ── Expand from a star: films most similar to a given film ──────────────────────
@@ -509,6 +697,15 @@ def movie_detail(tmdb_id: int):
 # ── Where to watch (live TMDB) ───────────────────────────────────────────────────
 _TMDB_BASE = "https://api.themoviedb.org/3"
 _PROVIDER_LOGO_BASE = "https://image.tmdb.org/t/p/w92"
+
+_CACHE_MAX = 2000   # cap per-cache entries so long-running instances don't leak
+
+def _cache_set(cache: dict, key, value) -> None:
+    """Insert into an in-memory cache with simple FIFO eviction at _CACHE_MAX."""
+    if key not in cache and len(cache) >= _CACHE_MAX:
+        cache.pop(next(iter(cache)))   # drop oldest (dicts keep insertion order)
+    cache[key] = value
+
 _providers_cache: dict[tuple[int, str], dict] = {}
 
 # TMDB groups providers by monetisation type; collapse to a friendly label.
@@ -563,7 +760,7 @@ def movie_providers(tmdb_id: int, region: str = "US"):
         "link": region_data.get("link"),
         "available": bool(providers),
     }
-    _providers_cache[key] = result
+    _cache_set(_providers_cache, key, result)
     return result
 
 
@@ -612,5 +809,5 @@ def movie_trailer(tmdb_id: int):
         best = max(candidates, key=rank)
         result = {"key": best.get("key"), "site": "YouTube", "name": best.get("name")}
 
-    _trailer_cache[tid] = result
+    _cache_set(_trailer_cache, tid, result)
     return result

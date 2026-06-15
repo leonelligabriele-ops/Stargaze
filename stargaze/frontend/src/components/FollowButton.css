@@ -1,0 +1,25 @@
+.follow-btn {
+  border-radius: 999px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid var(--brand-emerald);
+  background: var(--brand-emerald);
+  color: #04130d;
+  transition: background .15s, color .15s, border-color .15s;
+  white-space: nowrap;
+}
+.follow-btn:hover { background: var(--brand-emerald-d); }
+
+.follow-btn.is-following {
+  background: transparent;
+  color: var(--text-primary);
+  border-color: var(--border-subtle);
+}
+.follow-btn.is-following:hover {
+  background: rgba(239,68,68,.1);
+  border-color: #ef4444;
+  color: #ef4444;
+}
+
+.follow-btn--md { padding: 9px 22px; font-size: .92rem; }
+.follow-btn--sm { padding: 6px 14px; font-size: .78rem; }

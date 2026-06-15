@@ -1,0 +1,34 @@
+# Render Blueprint — Stargaze API, FULL/standard tier (2 GB, full semantic search).
+# This is the full-power version: PyTorch + the BGE model + the full 43.5k dataset.
+# For the free trial use render.yaml (lite) instead.
+#
+# To use this config, rename it to render.yaml (Render auto-detects that name),
+# or point a manually-created service's settings at these commands.
+#
+# The 43.5k-film data (embeddings.npy + index.json, ~126 MB) is NOT in the repo;
+# it's downloaded on first boot from EMBEDDINGS_URL / INDEX_URL (GitHub Release
+# assets). Set those plus TMDB_API_KEY and CORS_ORIGINS in the dashboard.
+
+services:
+  - type: web
+    name: stargaze-api
+    runtime: python
+    rootDir: stargaze/backend
+    plan: standard            # 2 GB RAM — the free 512 MB tier OOMs (torch + data)
+    # Pre-download the BGE model during build so it isn't re-fetched from
+    # HuggingFace on every cold start.
+    buildCommand: >-
+      pip install -r requirements.txt &&
+      python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('BAAI/bge-small-en-v1.5')"
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12"         # local venv is 3.14; pin a Render-supported runtime
+      - key: TMDB_API_KEY     # set the value in the dashboard (kept out of git)
+        sync: false
+      - key: EMBEDDINGS_URL   # GitHub Release asset URL for embeddings.npy
+        sync: false
+      - key: INDEX_URL        # GitHub Release asset URL for index.json
+        sync: false
+      - key: CORS_ORIGINS     # e.g. https://your-site.netlify.app
+        sync: false

@@ -4,10 +4,11 @@ import SearchBar from '../components/SearchBar.jsx'
 import FilterBar, { FILTER_KEYS } from '../components/FilterBar.jsx'
 import ConstellationGraph from '../components/ConstellationGraph.jsx'
 import MoviePanel from '../components/MoviePanel.jsx'
+import NotificationBell from '../components/NotificationBell.jsx'
+import ProfileAvatar from '../components/ProfileAvatar.jsx'
 import { getBlockedIds } from '../lib/saved.js'
+import { API } from '../lib/api.js'
 import './Explore.css'
-
-const API = '/api'
 
 export default function Explore() {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -146,7 +147,7 @@ export default function Explore() {
         <button className="brand-link" onClick={() => navigate('/')} aria-label="Back to home">
           <span className="brand">✦ Stargaze</span>
         </button>
-        <SearchBar onSearch={onSearch} loading={loading} initialValue={query} />
+        <SearchBar onSearch={onSearch} onPerson={onPerson} loading={loading} initialValue={query} />
         {person ? (
           <div className="person-pill">
             <span className="person-pill-icon">🎬</span>
@@ -156,6 +157,7 @@ export default function Explore() {
         ) : (
           <FilterBar value={filterValue} onChange={onFiltersChange} />
         )}
+        <div className="explore-bell"><NotificationBell /><ProfileAvatar /></div>
       </header>
 
       <div className="workspace">

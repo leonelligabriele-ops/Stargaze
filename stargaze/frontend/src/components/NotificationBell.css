@@ -1,0 +1,67 @@
+.notif-bell { position: relative; display: inline-flex; }
+
+.bell-btn {
+  position: relative;
+  width: 40px; height: 40px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 50%;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  cursor: pointer;
+  font-size: 1.05rem;
+  transition: background .15s, border-color .15s;
+}
+.bell-btn:hover { background: #1b2533; }
+
+.bell-badge {
+  position: absolute;
+  top: -3px; right: -3px;
+  min-width: 17px; height: 17px;
+  padding: 0 4px;
+  display: flex; align-items: center; justify-content: center;
+  background: #ef4444; color: #fff;
+  font-size: .62rem; font-weight: 700;
+  border-radius: 999px;
+  border: 2px solid var(--bg-base);
+}
+
+.bell-pop {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 90;
+  width: 300px;
+  max-height: 380px;
+  overflow-y: auto;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  box-shadow: 0 18px 44px rgba(0,0,0,.55);
+  animation: bell-in .14s ease;
+}
+@keyframes bell-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+
+.bell-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: .82rem; font-weight: 700; color: var(--text-primary);
+}
+.bell-head button {
+  background: none; border: none; cursor: pointer;
+  color: var(--text-muted); font-size: .75rem; font-weight: 600;
+}
+.bell-head button:hover { color: var(--text-primary); }
+
+.bell-empty { padding: 22px 14px; color: var(--text-faint); font-size: .85rem; text-align: center; }
+
+.bell-list { list-style: none; }
+.bell-list li {
+  display: flex; flex-direction: column; gap: 3px;
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.bell-list li:last-child { border-bottom: none; }
+.bell-list li.unread { background: rgba(16,185,129,.06); }
+.bell-list li p { font-size: .85rem; line-height: 1.45; color: var(--text-primary); }
+.bell-time { font-size: .72rem; color: var(--text-faint); }

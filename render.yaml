@@ -1,0 +1,33 @@
+# Render Blueprint — Stargaze API, FREE/lite tier (try the platform at no cost).
+#
+# Lite mode (STARGAZE_LITE=1) skips PyTorch and the embedding model, so it fits
+# Render's free 512 MB instance. Title / director / actor / expand / filter and
+# saved-constellation search work fully (they use the precomputed embeddings);
+# free-text "theme" search uses a lexical fallback instead of live encoding.
+#
+# Use the SMALLER dataset for the URLs below (run build_lite_subset.py → upload
+# embeddings_lite.npy + index_lite.json as GitHub Release assets).
+#
+# The full-power 2 GB config lives in render.standard.yaml.
+
+services:
+  - type: web
+    name: stargaze-api
+    runtime: python
+    rootDir: stargaze/backend
+    plan: free                # 512 MB — lite mode + the lite dataset stay under budget
+    buildCommand: pip install -r requirements-lite.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12"
+      - key: STARGAZE_LITE
+        value: "1"
+      - key: TMDB_API_KEY     # optional in lite (only providers/trailers use it)
+        sync: false
+      - key: EMBEDDINGS_URL   # Release asset URL for embeddings_lite.npy
+        sync: false
+      - key: INDEX_URL        # Release asset URL for index_lite.json
+        sync: false
+      - key: CORS_ORIGINS     # e.g. https://your-site.netlify.app
+        sync: false

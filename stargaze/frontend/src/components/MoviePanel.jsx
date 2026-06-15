@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { isSaved, toggleSaved, isBlocked, toggleBlocked } from '../lib/saved.js'
+import { isBlocked, toggleBlocked } from '../lib/saved.js'
+import SaveMenu from './SaveMenu.jsx'
 import './MoviePanel.css'
 
 const GENRE_COLOR = {
@@ -53,18 +54,12 @@ function PosterHeader({ movie }) {
 
 export default function MoviePanel({ movie, onClose, onExpand, onPerson, onBlock }) {
   const navigate = useNavigate()
-  const [saved, setSaved] = useState(false)
   const [blocked, setBlocked] = useState(false)
 
-  // Sync saved + blocked state whenever the displayed film changes.
+  // Sync blocked state whenever the displayed film changes.
   useEffect(() => {
-    setSaved(isSaved(movie.id))
     setBlocked(isBlocked(movie.id))
   }, [movie.id])
-
-  function onToggleSave() {
-    setSaved(toggleSaved(movie))
-  }
 
   function onToggleBlock() {
     const nowBlocked = toggleBlocked(movie)
@@ -126,13 +121,7 @@ export default function MoviePanel({ movie, onClose, onExpand, onPerson, onBlock
         )}
 
         <div className="card-actions">
-          <button
-            className={`save-btn ${saved ? 'is-saved' : ''}`}
-            onClick={onToggleSave}
-            aria-pressed={saved}
-          >
-            {saved ? '★ Saved' : '☆ Save'}
-          </button>
+          <SaveMenu movie={movie} variant="card" />
           <button
             className="details-btn"
             onClick={() => navigate(`/film/${movie.id}`)}

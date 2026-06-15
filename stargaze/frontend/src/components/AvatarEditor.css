@@ -1,0 +1,61 @@
+.ae-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(2, 4, 8, 0.82);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+}
+
+.ae-modal {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 16px;
+  padding: 22px;
+  width: min(340px, 92vw);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  box-shadow: 0 30px 80px rgba(0,0,0,.6);
+}
+.ae-title { font-size: 1.05rem; font-weight: 700; color: var(--text-primary); }
+
+.ae-frame {
+  position: relative;
+  border-radius: 50%;
+  overflow: hidden;
+  background: #0b0f16;
+  cursor: grab;
+  touch-action: none;
+  box-shadow: 0 0 0 3px rgba(16,185,129,.3), inset 0 0 0 1px rgba(255,255,255,.08);
+}
+.ae-frame:active { cursor: grabbing; }
+.ae-img {
+  position: absolute;
+  -webkit-user-select: none; user-select: none;
+  -webkit-user-drag: none;
+  pointer-events: none;
+}
+
+.ae-zoom {
+  display: flex; align-items: center; gap: 10px;
+  width: 100%; color: var(--text-muted); font-size: 1rem;
+}
+.ae-zoom input { flex: 1; accent-color: var(--brand-emerald); cursor: pointer; }
+.ae-hint { font-size: .76rem; color: var(--text-faint); }
+
+.ae-actions { display: flex; gap: 9px; width: 100%; }
+.ae-btn {
+  flex: 1; border-radius: 9px; padding: 10px 14px;
+  font-size: .88rem; font-weight: 600; cursor: pointer;
+  border: 1px solid transparent; transition: background .15s, border-color .15s;
+}
+.ae-cancel { background: transparent; border-color: var(--border-subtle); color: var(--text-primary); }
+.ae-cancel:hover { background: #1b2533; }
+.ae-save { background: var(--brand-emerald); color: #04130d; border: none; }
+.ae-save:hover { background: var(--brand-emerald-d); }

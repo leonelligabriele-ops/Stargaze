@@ -286,16 +286,20 @@ button.person-link:hover { color: #ffd27a; text-decoration: underline; }
 .trailer-frame iframe { width: 100%; height: 100%; border: 0; }
 .trailer-close {
   position: absolute;
-  top: -44px; right: 0;
-  width: 36px; height: 36px;
+  top: 10px; right: 10px;
+  z-index: 3;
+  width: 38px; height: 38px;
   display: flex; align-items: center; justify-content: center;
   border-radius: 50%;
-  background: var(--bg-elevated);
-  border: 1px solid var(--border-subtle);
-  color: var(--text-primary);
-  cursor: pointer; font-size: .9rem;
+  background: rgba(4, 6, 10, 0.72);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #fff;
+  cursor: pointer; font-size: 1rem; line-height: 1;
+  transition: background .15s, transform .15s;
 }
-.trailer-close:hover { background: #1b2533; }
+.trailer-close:hover { background: rgba(239, 68, 68, 0.9); transform: scale(1.08); }
 
 /* ---------------- Where to watch ---------------- */
 .watch {

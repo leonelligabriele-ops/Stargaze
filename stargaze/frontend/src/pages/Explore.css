@@ -21,6 +21,7 @@
 
 /* On wider screens keep search from eating all the room so filters sit inline. */
 .explore-header .search-form { flex: 1 1 320px; max-width: 520px; }
+.explore-bell { margin-left: auto; display: flex; align-items: center; gap: 10px; }
 
 .person-pill {
   display: inline-flex;

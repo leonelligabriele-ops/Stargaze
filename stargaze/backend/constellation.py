@@ -22,6 +22,7 @@ Returns:
 from __future__ import annotations
 
 import json
+import os
 import re
 from collections import deque
 from pathlib import Path
@@ -57,19 +58,58 @@ _embeddings: Optional[np.ndarray] = None
 _id_to_row: Optional[dict[int, int]] = None
 
 
+def _download(url: str, dest: Path) -> None:
+    """Stream a URL to dest, writing to a .tmp file first then renaming, so a
+    crashed/partial download never leaves a corrupt file in place."""
+    import httpx
+
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    tmp = dest.with_suffix(dest.suffix + ".tmp")
+    print(f"Downloading {dest.name} from {url} …")
+    with httpx.stream("GET", url, follow_redirects=True, timeout=None) as r:
+        r.raise_for_status()
+        with open(tmp, "wb") as f:
+            for chunk in r.iter_bytes(chunk_size=1 << 20):
+                f.write(chunk)
+    tmp.replace(dest)
+    print(f"  → {dest.name} ready ({dest.stat().st_size / 1e6:.0f} MB)")
+
+
+def ensure_data() -> None:
+    """Fetch the runtime data files if they're missing and download URLs are set.
+
+    On a fresh cloud instance the data isn't in the repo (it's gitignored), so we
+    pull embeddings.npy / index.json from the URLs in EMBEDDINGS_URL / INDEX_URL
+    (e.g. GitHub Release assets). Local dev keeps the files on disk, so this is a
+    no-op there. Files persist for the instance lifetime → downloads once per cold
+    start.
+    """
+    targets = {
+        "embeddings.npy": os.environ.get("EMBEDDINGS_URL"),
+        "index.json": os.environ.get("INDEX_URL"),
+    }
+    for name, url in targets.items():
+        dest = DATA_DIR / name
+        if dest.exists() or not url:
+            continue
+        _download(url, dest)
+
+
 def load_data() -> tuple[list[dict], np.ndarray, dict[int, int]]:
     global _index, _embeddings, _id_to_row
 
     if _index is not None:
         return _index, _embeddings, _id_to_row
 
+    ensure_data()   # fetch from EMBEDDINGS_URL / INDEX_URL if absent (cloud cold start)
+
     idx_path = DATA_DIR / "index.json"
     emb_path = DATA_DIR / "embeddings.npy"
 
     if not idx_path.exists():
-        raise RuntimeError("data/index.json missing — run build_embeddings.py first")
+        raise RuntimeError("data/index.json missing — set INDEX_URL or run build_embeddings.py")
     if not emb_path.exists():
-        raise RuntimeError("data/embeddings.npy missing — run build_embeddings.py first")
+        raise RuntimeError("data/embeddings.npy missing — set EMBEDDINGS_URL or run build_embeddings.py")
 
     with open(idx_path, encoding="utf-8") as f:
         _index = json.load(f)

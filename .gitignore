@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# Node / frontend build
+node_modules/
+dist/
+
+# Secrets & env
+.env
+.env.*
+
+# Large data artifacts (delivered via GitHub Release, not git)
+*.npy
+*.parquet
+backend/data/
+stargaze/backend/data/
+
+# Logs & local tooling
+*.log
+*.err
+*.out
+cloudflared.exe

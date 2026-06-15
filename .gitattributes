@@ -1,0 +1,9 @@
+# Normalize line endings to LF so Windows CRLF doesn't ship to Linux hosts.
+* text=auto eol=lf
+
+# Binary assets — never normalize.
+*.npy   binary
+*.parquet binary
+*.png   binary
+*.jpg   binary
+*.exe   binary

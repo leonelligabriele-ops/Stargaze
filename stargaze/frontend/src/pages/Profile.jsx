@@ -1,17 +1,23 @@
-import { useState, useEffect, useMemo, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
+import { useNavigate, Link } from 'react-router-dom'
 import ConstellationGraph from '../components/ConstellationGraph.jsx'
 import HalfStars from '../components/HalfStars.jsx'
+import NotificationBell from '../components/NotificationBell.jsx'
+import AvatarEditor from '../components/AvatarEditor.jsx'
+import FollowButton from '../components/FollowButton.jsx'
+import AddFilmsModal from '../components/AddFilmsModal.jsx'
+import { DEMO_USERS } from '../lib/demoUsers.js'
 import {
-  getProfile, setProfile,
+  getProfile, setProfile, getWatchedStats, getFollowingCount,
   getWatchlist, getWatched,
   removeFromWatchlist, removeWatched,
   markWatched, setUserRating, getReview, getBlockedList,
+  getCollections, getCollectionFilms, createCollection,
+  removeCollection, removeFromCollection,
   COLLECTIONS_EVENT,
 } from '../lib/saved.js'
+import { API } from '../lib/api.js'
 import './Profile.css'
-
-const API = '/api'
 
 const GENRE_COLOR = {
   'Action': '#ef4444', 'Adventure': '#f97316', 'Animation': '#fbbf24',
@@ -30,11 +36,11 @@ function useCollections() {
     window.addEventListener(COLLECTIONS_EVENT, bump)
     return () => window.removeEventListener(COLLECTIONS_EVENT, bump)
   }, [])
-  return { watchlist: getWatchlist(), watched: getWatched() }
+  return { watchlist: getWatchlist(), watched: getWatched(), collections: getCollections() }
 }
 
 /* ───────────────────────── Node action panel ───────────────────────── */
-function NodePanel({ node, mode, onClose }) {
+function NodePanel({ node, mode, collectionId, onClose }) {
   const navigate = useNavigate()
   const [rating, setRating] = useState(() => getReview(node.id).rating)
   const [comment, setComment] = useState(() => getReview(node.id).comment)
@@ -78,22 +84,24 @@ function NodePanel({ node, mode, onClose }) {
       )}
 
       <div className="node-actions">
-        {mode === 'watchlist' ? (
+        {mode !== 'watched' && (
           <button className="np-primary" onClick={() => { markWatched(node); onClose() }}>
             ✓ Mark as watched
           </button>
-        ) : null}
+        )}
         <button className="np-secondary" onClick={() => navigate(`/film/${node.id}`)}>
           View details →
         </button>
         <button
           className="np-danger"
           onClick={() => {
-            mode === 'watchlist' ? removeFromWatchlist(node.id) : removeWatched(node.id)
+            if (mode === 'watchlist') removeFromWatchlist(node.id)
+            else if (mode === 'watched') removeWatched(node.id)
+            else if (collectionId) removeFromCollection(collectionId, node.id)
             onClose()
           }}
         >
-          Remove
+          {mode === 'collection' ? 'Remove from constellation' : 'Remove'}
         </button>
       </div>
     </aside>
@@ -101,7 +109,7 @@ function NodePanel({ node, mode, onClose }) {
 }
 
 /* ───────────────────────── Collection constellation ───────────────────────── */
-function CollectionConstellation({ films, mode }) {
+function CollectionConstellation({ films, mode, collectionId, onAdd }) {
   const [graph, setGraph] = useState(null)
   const [loading, setLoading] = useState(false)
   const [selected, setSelected] = useState(null)
@@ -124,12 +132,15 @@ function CollectionConstellation({ films, mode }) {
   if (!films.length) {
     return (
       <div className="collection-empty">
-        <span className="empty-glyph">🔖</span>
+        <span className="empty-glyph">{mode === 'collection' ? '✦' : '🔖'}</span>
         <p>
           {mode === 'watchlist'
             ? 'Your watchlist is empty. Save films to map them here.'
-            : 'No watched films yet. Mark films as watched and rate them 1–10.'}
+            : mode === 'watched'
+            ? 'No watched films yet. Mark films as watched and rate them 1–5.'
+            : 'This constellation is empty. Add films to map them here.'}
         </p>
+        <button className="np-primary empty-add" onClick={onAdd}>✦ Add films</button>
       </div>
     )
   }
@@ -150,6 +161,7 @@ function CollectionConstellation({ films, mode }) {
         <NodePanel
           node={selected}
           mode={mode}
+          collectionId={collectionId}
           onClose={() => setSelected(null)}
         />
       )}
@@ -158,11 +170,14 @@ function CollectionConstellation({ films, mode }) {
 }
 
 /* ───────────────────────── Profile card ───────────────────────── */
-function ProfileCard({ savedCount, genreCount, favouriteGenres }) {
+function ProfileCard({ favouriteGenres, onOpenConstellation }) {
+  const navigate = useNavigate()
   const [profile, setLocalProfile] = useState(getProfile)
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(profile)
+  const [editorSrc, setEditorSrc] = useState(null)   // image being cropped
 
+  const stats = getWatchedStats()
   const initial = (profile.display_name || '?').trim()[0]?.toUpperCase() || '?'
 
   function save() {
@@ -171,10 +186,41 @@ function ProfileCard({ savedCount, genreCount, favouriteGenres }) {
     setEditing(false)
   }
 
+  // Picking a file opens the crop/zoom editor; saving happens from there.
+  function onPickAvatar(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setEditorSrc(URL.createObjectURL(file))
+    e.target.value = ''   // allow re-selecting the same file
+  }
+  function onAvatarSave(dataUrl) {
+    setProfile({ avatar: dataUrl })
+    setLocalProfile(p => ({ ...p, avatar: dataUrl }))
+    if (editorSrc) URL.revokeObjectURL(editorSrc)
+    setEditorSrc(null)
+  }
+  function onAvatarCancel() {
+    if (editorSrc) URL.revokeObjectURL(editorSrc)
+    setEditorSrc(null)
+  }
+
+  const counters = [
+    { num: stats.total, label: 'movies', onClick: () => onOpenConstellation('watched') },
+    { num: stats.thisYear, label: 'this year', onClick: () => onOpenConstellation('watched') },
+    { num: getFollowingCount(), label: 'following', onClick: () => navigate('/connections/following') },
+    { num: profile.followers, label: 'followers', onClick: () => navigate('/connections/followers') },
+  ]
+
   return (
     <section className="profile-card">
       <div className="pc-top">
-        <div className="pc-avatar">{initial}</div>
+        <label className="pc-avatar" title="Upload a picture">
+          {profile.avatar
+            ? <img className="pc-avatar-img" src={profile.avatar} alt="" />
+            : initial}
+          <span className="pc-avatar-edit">✎</span>
+          <input type="file" accept="image/*" hidden onChange={onPickAvatar} />
+        </label>
         {!editing && (
           <button className="edit-btn" onClick={() => { setDraft(profile); setEditing(true) }}>
             Edit profile
@@ -206,22 +252,20 @@ function ProfileCard({ savedCount, genreCount, favouriteGenres }) {
         </div>
       ) : (
         <>
-          <h1 className="pc-name">{profile.display_name}</h1>
+          <div className="pc-name-row">
+            <h1 className="pc-name">{profile.display_name}</h1>
+            <div className="pc-counters">
+              {counters.map(c => (
+                <button className="counter" key={c.label} onClick={c.onClick}>
+                  <span className="c-num">{c.num}</span>
+                  <span className="c-label">{c.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
           <p className="pc-bio">{profile.bio}</p>
         </>
       )}
-
-      <div className="pc-stats">
-        <div className="stat">
-          <span className="stat-num">{savedCount}</span>
-          <span className="stat-label">SAVED</span>
-        </div>
-        <div className="stat-divider" />
-        <div className="stat">
-          <span className="stat-num">{genreCount}</span>
-          <span className="stat-label">GENRES</span>
-        </div>
-      </div>
 
       <div className="pc-genres">
         <span className="mini-label">Favourite genres</span>
@@ -235,72 +279,191 @@ function ProfileCard({ savedCount, genreCount, favouriteGenres }) {
           <p className="pc-bio">Save some films to discover your favourites.</p>
         )}
       </div>
+
+      {editorSrc && (
+        <AvatarEditor src={editorSrc} onSave={onAvatarSave} onCancel={onAvatarCancel} />
+      )}
     </section>
+  )
+}
+
+/* ─────────────────── Create-constellation dropdown ─────────────────── */
+function CreateConstellation({ onCreated }) {
+  const [open, setOpen] = useState(false)
+  const [name, setName] = useState('')
+  const [friend, setFriend] = useState('')
+  const ref = useRef(null)
+
+  useEffect(() => {
+    if (!open) return
+    const onDown = e => { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
+    document.addEventListener('mousedown', onDown)
+    return () => document.removeEventListener('mousedown', onDown)
+  }, [open])
+
+  function create() {
+    if (!name.trim()) return
+    const id = createCollection(name, friend ? [friend] : [])
+    setName(''); setFriend(''); setOpen(false)
+    onCreated?.(id)
+  }
+
+  return (
+    <div className="cs-new" ref={ref}>
+      <button className="cs-add" onClick={() => setOpen(o => !o)} title="New constellation" aria-label="New constellation">＋</button>
+      {open && (
+        <div className="cs-new-pop">
+          <div className="mini-label">New constellation</div>
+          <input
+            autoFocus className="cs-new-input" value={name} maxLength={40}
+            placeholder="Name it…" onChange={e => setName(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') create() }}
+          />
+          <input
+            className="cs-new-input" value={friend} maxLength={40}
+            placeholder="Create with a friend (optional)" onChange={e => setFriend(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') create() }}
+          />
+          <button className="np-primary cs-new-go" onClick={create}>Create constellation</button>
+        </div>
+      )}
+    </div>
   )
 }
 
 /* ───────────────────────── Page ───────────────────────── */
 export default function Profile() {
   const navigate = useNavigate()
-  const { watchlist, watched } = useCollections()
+  const { watchlist, watched, collections } = useCollections()
   const [tab, setTab] = useState('watchlist')
+  const [addOpen, setAddOpen] = useState(false)
+  const constellationRef = useRef(null)
 
-  const { genreCount, favouriteGenres } = useMemo(() => {
+  const openConstellation = useCallback((t) => {
+    setTab(t)
+    requestAnimationFrame(() =>
+      constellationRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }),
+    )
+  }, [])
+
+  const { favouriteGenres } = useMemo(() => {
     const counts = {}
     const byId = new Map()
-    for (const f of [...watchlist, ...watched]) byId.set(f.id, f)
+    const colFilms = collections.flatMap(c => Object.values(c.films || {}))
+    for (const f of [...watchlist, ...watched, ...colFilms]) byId.set(f.id, f)
     for (const f of byId.values()) {
       for (const g of f.genres || []) counts[g] = (counts[g] || 0) + 1
     }
     const sorted = Object.keys(counts).sort((a, b) => counts[b] - counts[a])
-    return { genreCount: sorted.length, favouriteGenres: sorted.slice(0, 8) }
-  }, [watchlist, watched])
+    return { favouriteGenres: sorted.slice(0, 8) }
+  }, [watchlist, watched, collections])
 
-  const films = tab === 'watchlist' ? watchlist : watched
+  // Resolve the active tab → films + mode (+ collection id for custom lists).
+  const activeCol = collections.find(c => c.id === tab)
+  let films = watchlist, mode = 'watchlist', collectionId = null
+  if (tab === 'watched') { films = watched; mode = 'watched' }
+  else if (activeCol) { films = Object.values(activeCol.films || {}); mode = 'collection'; collectionId = activeCol.id }
+
+  const targetName = mode === 'watched' ? 'Watched'
+    : mode === 'collection' ? (activeCol?.name || 'this constellation')
+    : 'Watchlist'
+
   const blockedCount = getBlockedList().length
-
   const onHome = useCallback(() => navigate('/'), [navigate])
+
+  function deleteActive() {
+    if (activeCol) { removeCollection(activeCol.id); setTab('watchlist') }
+  }
 
   return (
     <div className="profile">
       <header className="profile-bar">
         <button className="back-arrow-btn" onClick={onHome} aria-label="Home">←</button>
         <span className="profile-brand">Stargaze</span>
-        <button className="blocked-link" onClick={() => navigate('/blocked')}>
-          🚫 Blocked{blockedCount ? ` (${blockedCount})` : ''}
-        </button>
+        <div className="profile-bar-right">
+          <button className="blocked-link" onClick={() => navigate('/blocked')}>
+            🚫 Blocked{blockedCount ? ` (${blockedCount})` : ''}
+          </button>
+          <NotificationBell />
+        </div>
       </header>
 
-      <ProfileCard
-        savedCount={watchlist.length}
-        genreCount={genreCount}
-        favouriteGenres={favouriteGenres}
-      />
+      <ProfileCard favouriteGenres={favouriteGenres} onOpenConstellation={openConstellation} />
 
-      <section className="constellation-section">
+      <section className="people-section">
+        <div className="cs-head">
+          <div>
+            <h2 className="cs-title">People to follow</h2>
+            <p className="cs-sub">Discover other stargazers</p>
+          </div>
+        </div>
+        <div className="people-row">
+          {DEMO_USERS.map(u => (
+            <div className="person-card" key={u.id}>
+              <Link to={`/u/${u.id}`} className="person-main">
+                <span className="person-av" style={{ background: u.color }}>
+                  {u.name.trim()[0].toUpperCase()}
+                </span>
+                <span className="person-info">
+                  <span className="person-name">{u.name}</span>
+                  <span className="person-sub">{u.followers.toLocaleString()} followers</span>
+                </span>
+              </Link>
+              <FollowButton user={u} size="sm" />
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="constellation-section" ref={constellationRef}>
         <div className="cs-head">
           <div>
             <h2 className="cs-title">My Constellation</h2>
-            <p className="cs-sub">Your saved films, mapped as stars</p>
+            <p className="cs-sub">
+              {activeCol
+                ? (activeCol.shared_with?.length
+                    ? `Shared with ${activeCol.shared_with.join(', ')}`
+                    : 'Your custom constellation')
+                : 'Your saved films, mapped as stars'}
+            </p>
           </div>
           <div className="cs-tabs">
-            <button
-              className={`cs-tab ${tab === 'watchlist' ? 'active' : ''}`}
-              onClick={() => setTab('watchlist')}
-            >
+            <button className={`cs-tab ${tab === 'watchlist' ? 'active' : ''}`} onClick={() => setTab('watchlist')}>
               Watchlist <span className="cs-count">{watchlist.length}</span>
             </button>
-            <button
-              className={`cs-tab ${tab === 'watched' ? 'active' : ''}`}
-              onClick={() => setTab('watched')}
-            >
+            <button className={`cs-tab ${tab === 'watched' ? 'active' : ''}`} onClick={() => setTab('watched')}>
               Watched <span className="cs-count">{watched.length}</span>
             </button>
+            {collections.map(c => (
+              <button key={c.id} className={`cs-tab ${tab === c.id ? 'active' : ''}`} onClick={() => setTab(c.id)}>
+                {c.name}{c.shared_with?.length ? ' 👥' : ''} <span className="cs-count">{Object.keys(c.films || {}).length}</span>
+              </button>
+            ))}
+            <CreateConstellation onCreated={id => setTab(id)} />
           </div>
         </div>
 
-        <CollectionConstellation films={films} mode={tab} />
+        <div className="cs-actions">
+          <button className="cs-addfilms" onClick={() => setAddOpen(true)}>✦ Add films</button>
+          {activeCol && (
+            <button className="cs-delete" onClick={deleteActive}>🗑 Delete “{activeCol.name}”</button>
+          )}
+        </div>
+
+        <CollectionConstellation
+          films={films} mode={mode} collectionId={collectionId}
+          onAdd={() => setAddOpen(true)}
+        />
       </section>
+
+      {addOpen && (
+        <AddFilmsModal
+          mode={mode}
+          collectionId={collectionId}
+          targetName={targetName}
+          onClose={() => setAddOpen(false)}
+        />
+      )}
     </div>
   )
 }

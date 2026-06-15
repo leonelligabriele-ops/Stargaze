@@ -1,19 +1,22 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { getProfile } from '../lib/saved.js'
+import NotificationBell from '../components/NotificationBell.jsx'
+import SearchBar from '../components/SearchBar.jsx'
 import './Home.css'
 
 export default function Home() {
-  const [query, setQuery] = useState('')
-  const [focused, setFocused] = useState(false)
   const [drawerOpen, setDrawerOpen] = useState(false)
   const navigate = useNavigate()
-  const avatarInitial = (getProfile().display_name || '?').trim()[0]?.toUpperCase() || '?'
+  const profile = getProfile()
+  const avatarInitial = (profile.display_name || '?').trim()[0]?.toUpperCase() || '?'
 
-  function submit(e) {
-    e.preventDefault()
-    const q = query.trim()
+  function search(q) {
     if (q) navigate(`/explore?q=${encodeURIComponent(q)}`)
+  }
+
+  function goPerson(name) {
+    if (name) navigate(`/explore?person=${encodeURIComponent(name)}`)
   }
 
   return (
@@ -32,9 +35,14 @@ export default function Home() {
           </svg>
         </button>
 
-        <Link to="/profile" className="avatar" aria-label="Your profile">
-          {avatarInitial}
-        </Link>
+        <div className="home-topbar-right">
+          <NotificationBell />
+          <Link to="/profile" className="avatar" aria-label="Your profile">
+            {profile.avatar
+              ? <img src={profile.avatar} alt="" className="avatar-img" />
+              : avatarInitial}
+          </Link>
+        </div>
       </header>
 
       {/* Centered hero column */}
@@ -43,28 +51,13 @@ export default function Home() {
 
         <h1 className="wordmark">Stargaze</h1>
 
-        <form
-          className={`home-search ${focused ? 'is-focused' : ''}`}
-          onSubmit={submit}
-        >
-          <input
-            className="home-search-input"
-            type="text"
-            placeholder="Search a film, director, actor, or theme..."
-            value={query}
-            onChange={e => setQuery(e.target.value)}
-            onFocus={() => setFocused(true)}
-            onBlur={() => setFocused(false)}
-            autoFocus
-          />
-          <button
-            className="home-search-btn"
-            type="submit"
-            disabled={!query.trim()}
-          >
-            Explore <span className="arrow">→</span>
-          </button>
-        </form>
+        <SearchBar
+          className="home-search"
+          onSearch={search}
+          onPerson={goPerson}
+          placeholder="Search a film, director, actor, or theme..."
+          buttonLabel="Explore"
+        />
       </main>
 
       {/* Nav drawer */}
