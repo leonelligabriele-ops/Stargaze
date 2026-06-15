@@ -4,7 +4,9 @@ import { useAuth } from '../lib/auth.jsx'
 import AuthModal from './AuthModal.jsx'
 import './AuthButton.css'
 
-const ADMIN_EMAIL = import.meta.env.VITE_ADMIN_EMAIL
+// Falls back to the owner's email so the Admin link shows without an env var.
+// (Real access is still enforced server-side by the public.admins table.)
+const ADMIN_EMAIL = import.meta.env.VITE_ADMIN_EMAIL || 'leonelli.gabriele@gmail.com'
 
 /**
  * Account control for the top bars. Renders nothing when Supabase isn't
@@ -45,7 +47,7 @@ export default function AuthButton() {
       {menuOpen && (
         <div className="auth-menu">
           <div className="auth-menu-email">{user.email}</div>
-          {ADMIN_EMAIL && user.email === ADMIN_EMAIL && (
+          {ADMIN_EMAIL && user.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase() && (
             <button className="auth-menu-item" onClick={() => { setMenuOpen(false); navigate('/admin') }}>
               Admin dashboard
             </button>
