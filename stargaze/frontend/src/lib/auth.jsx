@@ -1,12 +1,15 @@
 import { createContext, useContext, useEffect, useRef, useState } from 'react'
 import { supabase, authEnabled } from './supabase.js'
 import { startSync, stopSync } from './cloudSync.js'
-import { clearAllState, seedDisplayNameFromEmail } from './saved.js'
+import { clearAllState, seedDisplayNameFromEmail, getProfile } from './saved.js'
+import { ensureProfile } from './profiles.js'
 
-// Pull cloud data, then give a brand-new account a name from its email.
+// Pull cloud data, name a brand-new account from its email, then ensure a
+// public profile row exists (seeded from the local profile).
 async function onSignedIn(user) {
   await startSync(user.id)
   seedDisplayNameFromEmail(user.email)
+  await ensureProfile(user, getProfile())
 }
 
 const AuthCtx = createContext({ user: null, loading: false, enabled: false })

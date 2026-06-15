@@ -1,9 +1,10 @@
--- Stargaze — Supabase schema for accounts (email/password) + per-user data.
--- Run this once in your Supabase project: SQL Editor → paste → Run.
+-- Stargaze — Supabase schema: accounts + per-user data + social graph.
+-- Run in your Supabase project: SQL Editor → paste → Run. Safe to re-run
+-- (tables use IF NOT EXISTS; policies are dropped-then-created).
 --
--- The whole client profile (watchlist, watched, collections, follows, blocked,
--- notifications, profile) is mirrored into one JSONB row per user. Row-Level
--- Security ensures a signed-in user can only ever touch their own row.
+-- The client profile (watchlist, watched, collections, blocked, notifications,
+-- profile) is mirrored into one JSONB row per user (user_state). Public
+-- profiles + follows power real accounts following each other.
 
 create table if not exists public.user_state (
   user_id    uuid primary key references auth.users on delete cascade,
@@ -13,14 +14,17 @@ create table if not exists public.user_state (
 
 alter table public.user_state enable row level security;
 
+drop policy if exists "user_state: select own" on public.user_state;
 create policy "user_state: select own"
   on public.user_state for select
   using (auth.uid() = user_id);
 
+drop policy if exists "user_state: insert own" on public.user_state;
 create policy "user_state: insert own"
   on public.user_state for insert
   with check (auth.uid() = user_id);
 
+drop policy if exists "user_state: update own" on public.user_state;
 create policy "user_state: update own"
   on public.user_state for update
   using (auth.uid() = user_id)
@@ -70,3 +74,45 @@ $$;
 
 revoke all on function public.admin_stats() from public, anon;
 grant execute on function public.admin_stats() to authenticated;
+
+
+-- ───────────────── Public profiles + follows (social graph) ─────────────────
+-- Each account has a public profile (unique @username) so people can find and
+-- follow each other. Profiles + follows are world-readable (for discovery and
+-- counts); a user can only edit their own profile and their own follow rows.
+
+create table if not exists public.profiles (
+  id           uuid primary key references auth.users on delete cascade,
+  username     text unique not null,
+  display_name text,
+  bio          text,
+  avatar       text,
+  updated_at   timestamptz not null default now()
+);
+alter table public.profiles enable row level security;
+
+drop policy if exists "profiles: public read" on public.profiles;
+create policy "profiles: public read"  on public.profiles for select using (true);
+drop policy if exists "profiles: insert own" on public.profiles;
+create policy "profiles: insert own"   on public.profiles for insert with check (auth.uid() = id);
+drop policy if exists "profiles: update own" on public.profiles;
+create policy "profiles: update own"   on public.profiles for update using (auth.uid() = id) with check (auth.uid() = id);
+
+create table if not exists public.follows (
+  follower_id uuid not null references public.profiles (id) on delete cascade,
+  followee_id uuid not null references public.profiles (id) on delete cascade,
+  created_at  timestamptz not null default now(),
+  primary key (follower_id, followee_id),
+  check (follower_id <> followee_id)
+);
+alter table public.follows enable row level security;
+
+drop policy if exists "follows: public read" on public.follows;
+create policy "follows: public read"   on public.follows for select using (true);
+drop policy if exists "follows: follow as me" on public.follows;
+create policy "follows: follow as me"  on public.follows for insert with check (auth.uid() = follower_id);
+drop policy if exists "follows: unfollow own" on public.follows;
+create policy "follows: unfollow own"  on public.follows for delete using (auth.uid() = follower_id);
+
+create index if not exists follows_followee_idx on public.follows (followee_id);
+create index if not exists follows_follower_idx on public.follows (follower_id);

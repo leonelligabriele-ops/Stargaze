@@ -1,29 +1,34 @@
 import { useState, useEffect } from 'react'
-import { useParams, useNavigate, Link } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import NotificationBell from '../components/NotificationBell.jsx'
 import ProfileAvatar from '../components/ProfileAvatar.jsx'
-import FollowButton from '../components/FollowButton.jsx'
-import { getFollowing, COLLECTIONS_EVENT } from '../lib/saved.js'
-import { getDemoUser } from '../lib/demoUsers.js'
-import './Profile.css'
+import AuthButton from '../components/AuthButton.jsx'
+import PersonRow from '../components/PersonRow.jsx'
+import { useAuth } from '../lib/auth.jsx'
+import { getFollowers, getFollowingProfiles, getFollowCounts } from '../lib/profiles.js'
 
 export default function Connections() {
   const { type } = useParams()             // 'following' | 'followers'
   const navigate = useNavigate()
+  const { enabled, user, loading } = useAuth()
   const isFollowers = type === 'followers'
 
-  // Re-render when follow state changes (unfollowing from this list).
-  const [, force] = useState(0)
-  useEffect(() => {
-    const bump = () => force(n => n + 1)
-    window.addEventListener(COLLECTIONS_EVENT, bump)
-    return () => window.removeEventListener(COLLECTIONS_EVENT, bump)
-  }, [])
+  const [list, setList] = useState([])
+  const [counts, setCounts] = useState({ followers: 0, following: 0 })
+  const [pending, setPending] = useState(true)
 
-  // Enrich each followed user with demo data (colour, follower count, …).
-  const following = getFollowing().map(u => ({ ...getDemoUser(u.id), ...u }))
-  // Nobody can follow you back in a single-user demo, so followers is empty.
-  const list = isFollowers ? [] : following
+  useEffect(() => {
+    if (loading) return
+    if (!enabled || !user) { setPending(false); return }
+    let cancelled = false
+    setPending(true)
+    const fetchList = isFollowers ? getFollowers : getFollowingProfiles
+    Promise.all([fetchList(user.id), getFollowCounts(user.id)]).then(([rows, c]) => {
+      if (cancelled) return
+      setList(rows); setCounts(c); setPending(false)
+    })
+    return () => { cancelled = true }
+  }, [enabled, user, loading, isFollowers])
 
   return (
     <div className="profile">
@@ -33,6 +38,7 @@ export default function Connections() {
         <div className="profile-bar-right">
           <NotificationBell />
           <ProfileAvatar />
+          <AuthButton />
         </div>
       </header>
 
@@ -40,43 +46,35 @@ export default function Connections() {
         <div className="conn-tabs">
           <button className={`conn-tab ${!isFollowers ? 'active' : ''}`}
                   onClick={() => navigate('/connections/following')}>
-            Following <span className="cs-count">{following.length}</span>
+            Following <span className="cs-count">{counts.following}</span>
           </button>
           <button className={`conn-tab ${isFollowers ? 'active' : ''}`}
                   onClick={() => navigate('/connections/followers')}>
-            Followers <span className="cs-count">0</span>
+            Followers <span className="cs-count">{counts.followers}</span>
           </button>
         </div>
 
-        {list.length ? (
+        {!enabled || !user ? (
+          <div className="conn-empty">
+            <span className="empty-glyph">👤</span>
+            <p>Sign in to follow other stargazers and see your connections.</p>
+          </div>
+        ) : pending ? (
+          <p className="admin-msg">Loading…</p>
+        ) : list.length ? (
           <div className="people-row">
-            {list.map(u => (
-              <div className="person-card" key={u.id}>
-                <Link to={`/u/${u.id}`} className="person-main">
-                  <span className="person-av" style={{ background: u.color || '#64748b' }}>
-                    {(u.name || '?').trim()[0].toUpperCase()}
-                  </span>
-                  <span className="person-info">
-                    <span className="person-name">{u.name}</span>
-                    <span className="person-sub">{(u.followers ?? 0).toLocaleString()} followers</span>
-                  </span>
-                </Link>
-                <FollowButton user={u} size="sm" />
-              </div>
-            ))}
+            {list.map(p => <PersonRow key={p.id} profile={p} />)}
           </div>
         ) : (
           <div className="conn-empty">
             <span className="empty-glyph">{isFollowers ? '✦' : '👤'}</span>
             <p>
               {isFollowers
-                ? 'No followers yet — this is a single-user demo, so no one can follow you back.'
-                : 'You’re not following anyone yet. Discover stargazers to follow on your profile.'}
+                ? 'No followers yet.'
+                : 'You’re not following anyone yet. Find people on your profile.'}
             </p>
             {!isFollowers && (
-              <button className="np-primary empty-add" onClick={() => navigate('/profile')}>
-                Find people
-              </button>
+              <button className="np-primary empty-add" onClick={() => navigate('/profile')}>Find people</button>
             )}
           </div>
         )}

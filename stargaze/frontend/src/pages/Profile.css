@@ -91,6 +91,7 @@
 
 .pc-name { font-size: 1.7rem; font-weight: 800; color: var(--text-primary); line-height: 1.1; }
 .pc-bio { font-size: .95rem; color: var(--text-muted); line-height: 1.5; max-width: 60ch; }
+.pc-handle { font-size: .85rem; color: var(--brand-emerald); font-weight: 600; margin-top: 2px; }
 
 /* Name on the left, counters justified right on the same level */
 .pc-name-row {
@@ -144,6 +145,16 @@
 
 /* ---------------- People to follow ---------------- */
 .people-section { margin-top: 32px; }
+.people-search {
+  width: 100%; max-width: 360px; margin-bottom: 14px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  padding: 10px 13px;
+  color: var(--text-primary); font-size: .92rem;
+}
+.people-search:focus { outline: none; border-color: var(--brand-emerald); }
+.people-empty { margin-top: 6px; }
 .people-row { display: flex; flex-wrap: wrap; gap: 12px; }
 .person-card {
   display: flex; align-items: center; gap: 12px;
@@ -159,9 +170,11 @@
 }
 .person-av {
   width: 42px; height: 42px; border-radius: 50%;
-  display: grid; place-items: center;
+  display: grid; place-items: center; overflow: hidden;
   font-weight: 700; color: #04130d; flex-shrink: 0;
+  background: var(--brand-emerald);
 }
+.person-av img { width: 100%; height: 100%; object-fit: cover; }
 .person-info { display: flex; flex-direction: column; min-width: 0; }
 .person-name {
   font-weight: 600; color: var(--text-primary);

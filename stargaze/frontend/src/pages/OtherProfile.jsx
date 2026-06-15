@@ -2,84 +2,77 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import NotificationBell from '../components/NotificationBell.jsx'
 import ProfileAvatar from '../components/ProfileAvatar.jsx'
+import AuthButton from '../components/AuthButton.jsx'
 import FollowButton from '../components/FollowButton.jsx'
-import { getDemoUser } from '../lib/demoUsers.js'
-import { isFollowing, COLLECTIONS_EVENT } from '../lib/saved.js'
+import { getProfileByUsername, getFollowCounts } from '../lib/profiles.js'
 import './Profile.css'
 
 export default function OtherProfile() {
-  const { id } = useParams()
+  const { username } = useParams()
   const navigate = useNavigate()
-  const user = getDemoUser(id)
+  const [profile, setProfile] = useState(undefined)   // undefined = loading, null = not found
+  const [counts, setCounts] = useState({ followers: 0, following: 0 })
 
-  // Re-render when follow state changes so the follower count reflects it.
-  const [, force] = useState(0)
   useEffect(() => {
-    const bump = () => force(n => n + 1)
-    window.addEventListener(COLLECTIONS_EVENT, bump)
-    return () => window.removeEventListener(COLLECTIONS_EVENT, bump)
-  }, [])
+    let cancelled = false
+    setProfile(undefined)
+    getProfileByUsername(username).then(p => {
+      if (cancelled) return
+      setProfile(p || null)
+      if (p) getFollowCounts(p.id).then(c => { if (!cancelled) setCounts(c) })
+    })
+    return () => { cancelled = true }
+  }, [username])
 
-  if (!user) {
+  function refreshCounts() {
+    if (profile) getFollowCounts(profile.id).then(setCounts)
+  }
+
+  const Header = (
+    <header className="profile-bar">
+      <button className="back-arrow-btn" onClick={() => navigate(-1)} aria-label="Back">←</button>
+      <span className="profile-brand">Stargaze</span>
+      <div className="profile-bar-right">
+        <NotificationBell />
+        <ProfileAvatar />
+        <AuthButton />
+      </div>
+    </header>
+  )
+
+  if (profile === undefined) {
+    return <div className="profile">{Header}<p className="admin-msg">Loading…</p></div>
+  }
+  if (profile === null) {
     return (
-      <div className="profile">
-        <header className="profile-bar">
-          <button className="back-arrow-btn" onClick={() => navigate('/profile')} aria-label="Back">←</button>
-          <span className="profile-brand">Stargaze</span>
-        </header>
+      <div className="profile">{Header}
         <section className="profile-card"><p className="pc-bio">This profile doesn’t exist.</p></section>
       </div>
     )
   }
 
-  const initial = user.name.trim()[0].toUpperCase()
-  const youFollow = isFollowing(user.id)
-  const counters = [
-    { num: user.movies.toLocaleString(), label: 'movies' },
-    { num: (user.followers + (youFollow ? 1 : 0)).toLocaleString(), label: 'followers' },
-    { num: user.following.toLocaleString(), label: 'following' },
-  ]
+  const name = profile.display_name || profile.username
+  const initial = name.trim()[0]?.toUpperCase() || '?'
 
   return (
-    <div className="profile">
-      <header className="profile-bar">
-        <button className="back-arrow-btn" onClick={() => navigate(-1)} aria-label="Back">←</button>
-        <span className="profile-brand">Stargaze</span>
-        <div className="profile-bar-right">
-          <NotificationBell />
-          <ProfileAvatar />
-        </div>
-      </header>
-
+    <div className="profile">{Header}
       <section className="profile-card">
         <div className="pc-top">
-          <div className="pc-avatar" style={{ background: user.color, color: '#04130d', cursor: 'default' }}>
-            {initial}
+          <div className="pc-avatar" style={{ cursor: 'default' }}>
+            {profile.avatar ? <img className="pc-avatar-img" src={profile.avatar} alt="" /> : initial}
           </div>
-          <FollowButton user={user} size="md" />
+          <FollowButton targetId={profile.id} size="md" onChange={refreshCounts} />
         </div>
 
         <div className="pc-name-row">
-          <h1 className="pc-name">{user.name}</h1>
+          <h1 className="pc-name">{name}</h1>
           <div className="pc-counters">
-            {counters.map(c => (
-              <div className="counter" key={c.label}>
-                <span className="c-num">{c.num}</span>
-                <span className="c-label">{c.label}</span>
-              </div>
-            ))}
+            <div className="counter"><span className="c-num">{counts.followers}</span><span className="c-label">followers</span></div>
+            <div className="counter"><span className="c-num">{counts.following}</span><span className="c-label">following</span></div>
           </div>
         </div>
-        <p className="pc-bio">{user.bio}</p>
-
-        <div className="pc-genres">
-          <span className="mini-label">Favourite genres</span>
-          <div className="genre-row">
-            {user.genres.map(g => <span key={g} className="fav-genre">{g}</span>)}
-          </div>
-        </div>
-
-        <p className="demo-note">✦ Demo profile — follows are saved locally on your device.</p>
+        <p className="pc-handle">@{profile.username}</p>
+        {profile.bio && <p className="pc-bio">{profile.bio}</p>}
       </section>
     </div>
   )

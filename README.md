@@ -90,15 +90,19 @@ assets. Copy their asset download URLs.
 ## Accounts (optional — Supabase)
 
 Accounts let visitors **sign up / log in (email + password)** and have their saved
-films, ratings and constellations stored in the cloud and synced across devices. It's
+films, ratings and constellations stored in the cloud and synced across devices, plus a
+public **@username** profile so accounts can **follow each other** for real. It's
 **optional**: with no Supabase env vars the app runs guest-only (localStorage), exactly
 as before. The FastAPI backend is not involved — auth + storage are handled by Supabase
 directly from the browser.
 
 **Setup:**
 1. Create a free project at [supabase.com](https://supabase.com).
-2. **SQL Editor** → paste [`supabase_schema.sql`](supabase_schema.sql) → **Run** (creates
-   the `user_state` table + row-level-security policies).
+2. **SQL Editor** → paste [`supabase_schema.sql`](supabase_schema.sql) → **Run**. It creates
+   `user_state` (synced data), `profiles` + `follows` (the social graph), and `admins` +
+   `admin_stats()` (the in-app admin page). Safe to re-run. To make yourself an admin:
+   `insert into public.admins (email) values ('you@example.com');` and set
+   `VITE_ADMIN_EMAIL` (below) to the same email.
 3. **Authentication → Providers → Email** is on by default. For quick testing you can turn
    off "Confirm email" (Authentication → Providers → Email) so sign-up logs in instantly.
 4. **Project Settings → API**: copy the **Project URL** and the **anon public** key.
@@ -107,8 +111,9 @@ directly from the browser.
      ```
      VITE_SUPABASE_URL=https://<project>.supabase.co
      VITE_SUPABASE_ANON_KEY=<anon public key>
+     VITE_ADMIN_EMAIL=you@example.com   # optional — shows the Admin link for this account
      ```
-   - Netlify → **Site settings → Environment variables** → add the same two → redeploy.
+   - Netlify → **Site settings → Environment variables** → add the same → redeploy.
 
 When set, a **Sign in** button appears in the top bars. The anon key is safe to expose in
 the frontend — row-level security is what protects the data. How it works: on login the

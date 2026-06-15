@@ -274,30 +274,7 @@ export function getCollectionFilms(id) {
   return Object.values(read(COLLECTIONS_KEY)[String(id)]?.films || {})
 }
 
-/* ───────────────── Following (demo — local only) ───────────────── */
-const FOLLOWING_KEY = 'stargaze:following'
-
-export function isFollowing(id) {
-  return Boolean(read(FOLLOWING_KEY)[String(id)])
-}
-
-export function toggleFollow(user) {
-  const map = read(FOLLOWING_KEY)
-  const id = String(user.id)
-  if (map[id]) delete map[id]
-  else map[id] = { id, name: user.name }
-  write(FOLLOWING_KEY, map)
-  pushNotification(map[id] ? `You followed ${user.name}` : `You unfollowed ${user.name}`, 'follows')
-  return Boolean(map[id])
-}
-
-export function getFollowingCount() {
-  return Object.keys(read(FOLLOWING_KEY)).length
-}
-
-export function getFollowing() {
-  return Object.values(read(FOLLOWING_KEY))
-}
+/* Follows now live in the real social graph (Supabase) — see lib/profiles.js. */
 
 /* ───────────────────────── Notifications ───────────────────────── */
 const NOTIFS_KEY = 'stargaze:notifications'
@@ -365,7 +342,7 @@ export function seedNotificationsOnce() {
 // Every persisted collection key, so an account can mirror the whole profile.
 const _ALL_KEYS = [
   WATCHLIST_KEY, WATCHED_KEY, PROFILE_KEY, BLOCKED_KEY,
-  COLLECTIONS_KEY, FOLLOWING_KEY, NOTIFS_KEY, NOTIF_PREFS_KEY,
+  COLLECTIONS_KEY, NOTIFS_KEY, NOTIF_PREFS_KEY,
 ]
 
 /** Snapshot all persisted data as one plain object (for cloud backup). */

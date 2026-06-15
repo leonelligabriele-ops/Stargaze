@@ -18,7 +18,7 @@ export default function App() {
         <Route path="/explore" element={<Explore />} />
         <Route path="/film/:id" element={<FilmPage />} />
         <Route path="/profile" element={<Profile />} />
-        <Route path="/u/:id" element={<OtherProfile />} />
+        <Route path="/u/:username" element={<OtherProfile />} />
         <Route path="/connections/:type" element={<Connections />} />
         <Route path="/blocked" element={<BlockedFilms />} />
         <Route path="/admin" element={<Admin />} />

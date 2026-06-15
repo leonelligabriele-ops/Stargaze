@@ -1,15 +1,16 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import ConstellationGraph from '../components/ConstellationGraph.jsx'
 import HalfStars from '../components/HalfStars.jsx'
 import NotificationBell from '../components/NotificationBell.jsx'
 import AuthButton from '../components/AuthButton.jsx'
 import AvatarEditor from '../components/AvatarEditor.jsx'
-import FollowButton from '../components/FollowButton.jsx'
 import AddFilmsModal from '../components/AddFilmsModal.jsx'
-import { DEMO_USERS } from '../lib/demoUsers.js'
+import PeopleToFollow from '../components/PeopleToFollow.jsx'
+import { useAuth } from '../lib/auth.jsx'
+import { getMyProfile, updateMyProfile, getFollowCounts } from '../lib/profiles.js'
 import {
-  getProfile, setProfile, getWatchedStats, getFollowingCount,
+  getProfile, setProfile, getWatchedStats,
   getWatchlist, getWatched,
   removeFromWatchlist, removeWatched,
   markWatched, setUserRating, getReview, getBlockedList,
@@ -173,17 +174,41 @@ function CollectionConstellation({ films, mode, collectionId, onAdd }) {
 /* ───────────────────────── Profile card ───────────────────────── */
 function ProfileCard({ favouriteGenres, onOpenConstellation }) {
   const navigate = useNavigate()
+  const { user } = useAuth()
   const [profile, setLocalProfile] = useState(getProfile)
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(profile)
   const [editorSrc, setEditorSrc] = useState(null)   // image being cropped
+  const [username, setUsername] = useState('')
+  const [counts, setCounts] = useState({ followers: 0, following: 0 })
+  const [saveErr, setSaveErr] = useState(null)
 
   const stats = getWatchedStats()
   const initial = (profile.display_name || '?').trim()[0]?.toUpperCase() || '?'
 
-  function save() {
-    setProfile(draft)
-    setLocalProfile(draft)
+  // Load this account's @username + real follow counts.
+  useEffect(() => {
+    if (!user) { setUsername(''); setCounts({ followers: 0, following: 0 }); return }
+    let cancelled = false
+    getMyProfile(user.id).then(p => { if (!cancelled && p) setUsername(p.username || '') })
+    getFollowCounts(user.id).then(c => { if (!cancelled) setCounts(c) })
+    return () => { cancelled = true }
+  }, [user])
+
+  async function save() {
+    setSaveErr(null)
+    if (user) {
+      const { error } = await updateMyProfile(user.id, {
+        username: draft.username,
+        display_name: draft.display_name,
+        bio: draft.bio,
+        avatar: profile.avatar,
+      })
+      if (error) { setSaveErr(error.message); return }
+      if (draft.username) setUsername(draft.username.toLowerCase().replace(/[^a-z0-9_]/g, ''))
+    }
+    setProfile({ display_name: draft.display_name, bio: draft.bio })
+    setLocalProfile(getProfile())
     setEditing(false)
   }
 
@@ -197,6 +222,7 @@ function ProfileCard({ favouriteGenres, onOpenConstellation }) {
   function onAvatarSave(dataUrl) {
     setProfile({ avatar: dataUrl })
     setLocalProfile(p => ({ ...p, avatar: dataUrl }))
+    if (user) updateMyProfile(user.id, { avatar: dataUrl })   // share to your public profile
     if (editorSrc) URL.revokeObjectURL(editorSrc)
     setEditorSrc(null)
   }
@@ -208,9 +234,13 @@ function ProfileCard({ favouriteGenres, onOpenConstellation }) {
   const counters = [
     { num: stats.total, label: 'movies', onClick: () => onOpenConstellation('watched') },
     { num: stats.thisYear, label: 'this year', onClick: () => onOpenConstellation('watched') },
-    { num: getFollowingCount(), label: 'following', onClick: () => navigate('/connections/following') },
-    { num: profile.followers, label: 'followers', onClick: () => navigate('/connections/followers') },
   ]
+  if (user) {
+    counters.push(
+      { num: counts.following, label: 'following', onClick: () => navigate('/connections/following') },
+      { num: counts.followers, label: 'followers', onClick: () => navigate('/connections/followers') },
+    )
+  }
 
   return (
     <section className="profile-card">
@@ -223,7 +253,7 @@ function ProfileCard({ favouriteGenres, onOpenConstellation }) {
           <input type="file" accept="image/*" hidden onChange={onPickAvatar} />
         </label>
         {!editing && (
-          <button className="edit-btn" onClick={() => { setDraft(profile); setEditing(true) }}>
+          <button className="edit-btn" onClick={() => { setDraft({ ...profile, username }); setEditing(true) }}>
             Edit profile
           </button>
         )}
@@ -238,6 +268,15 @@ function ProfileCard({ favouriteGenres, onOpenConstellation }) {
             onChange={e => setDraft(d => ({ ...d, display_name: e.target.value }))}
             placeholder="Display name"
           />
+          {user && (
+            <input
+              className="pc-input"
+              value={draft.username || ''}
+              maxLength={20}
+              onChange={e => setDraft(d => ({ ...d, username: e.target.value }))}
+              placeholder="Username (a–z, 0–9, _)"
+            />
+          )}
           <textarea
             className="pc-input pc-textarea"
             value={draft.bio}
@@ -246,6 +285,7 @@ function ProfileCard({ favouriteGenres, onOpenConstellation }) {
             onChange={e => setDraft(d => ({ ...d, bio: e.target.value }))}
             placeholder="Short bio"
           />
+          {saveErr && <p className="auth-msg auth-err">{saveErr}</p>}
           <div className="pc-edit-actions">
             <button className="np-secondary" onClick={() => setEditing(false)}>Cancel</button>
             <button className="np-primary" onClick={save}>Save</button>
@@ -264,6 +304,7 @@ function ProfileCard({ favouriteGenres, onOpenConstellation }) {
               ))}
             </div>
           </div>
+          {user && username && <p className="pc-handle">@{username}</p>}
           <p className="pc-bio">{profile.bio}</p>
         </>
       )}
@@ -392,30 +433,7 @@ export default function Profile() {
 
       <ProfileCard favouriteGenres={favouriteGenres} onOpenConstellation={openConstellation} />
 
-      <section className="people-section">
-        <div className="cs-head">
-          <div>
-            <h2 className="cs-title">People to follow</h2>
-            <p className="cs-sub">Discover other stargazers</p>
-          </div>
-        </div>
-        <div className="people-row">
-          {DEMO_USERS.map(u => (
-            <div className="person-card" key={u.id}>
-              <Link to={`/u/${u.id}`} className="person-main">
-                <span className="person-av" style={{ background: u.color }}>
-                  {u.name.trim()[0].toUpperCase()}
-                </span>
-                <span className="person-info">
-                  <span className="person-name">{u.name}</span>
-                  <span className="person-sub">{u.followers.toLocaleString()} followers</span>
-                </span>
-              </Link>
-              <FollowButton user={u} size="sm" />
-            </div>
-          ))}
-        </div>
-      </section>
+      <PeopleToFollow />
 
       <section className="constellation-section" ref={constellationRef}>
         <div className="cs-head">
