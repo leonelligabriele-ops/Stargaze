@@ -87,8 +87,11 @@ create table if not exists public.profiles (
   display_name text,
   bio          text,
   avatar       text,
+  films        jsonb not null default '[]'::jsonb,   -- public watched-film snapshots
   updated_at   timestamptz not null default now()
 );
+-- for projects created before `films` existed:
+alter table public.profiles add column if not exists films jsonb not null default '[]'::jsonb;
 alter table public.profiles enable row level security;
 
 drop policy if exists "profiles: public read" on public.profiles;
@@ -116,3 +119,43 @@ create policy "follows: unfollow own"  on public.follows for delete using (auth.
 
 create index if not exists follows_followee_idx on public.follows (followee_id);
 create index if not exists follows_follower_idx on public.follows (follower_id);
+
+
+-- ───────────────── Notifications (cross-user events) ─────────────────
+-- Server-side notifications for things other people do to you (e.g. a follow).
+-- Self-actions (created a constellation, etc.) stay client-side; these are the
+-- ones that must be delivered from the database.
+
+create table if not exists public.notifications (
+  id           bigint generated always as identity primary key,
+  recipient_id uuid not null references public.profiles (id) on delete cascade,
+  actor_id     uuid references public.profiles (id) on delete set null,
+  type         text not null,
+  read         boolean not null default false,
+  created_at   timestamptz not null default now()
+);
+alter table public.notifications enable row level security;
+
+drop policy if exists "notifications: read own" on public.notifications;
+create policy "notifications: read own"   on public.notifications for select using (auth.uid() = recipient_id);
+drop policy if exists "notifications: update own" on public.notifications;
+create policy "notifications: update own" on public.notifications for update using (auth.uid() = recipient_id);
+drop policy if exists "notifications: delete own" on public.notifications;
+create policy "notifications: delete own" on public.notifications for delete using (auth.uid() = recipient_id);
+-- inserts happen only via the trigger below (owned by the table owner → bypasses RLS)
+
+create index if not exists notifications_recipient_idx on public.notifications (recipient_id, created_at desc);
+
+-- When someone follows you, drop a notification in your bell.
+create or replace function public.notify_on_follow()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  insert into public.notifications (recipient_id, actor_id, type)
+  values (NEW.followee_id, NEW.follower_id, 'follow');
+  return NEW;
+end;
+$$;
+
+drop trigger if exists follows_notify on public.follows;
+create trigger follows_notify after insert on public.follows
+  for each row execute function public.notify_on_follow();

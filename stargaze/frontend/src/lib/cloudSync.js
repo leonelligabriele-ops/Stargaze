@@ -26,6 +26,20 @@ async function _push(userId, state) {
     user_id: userId, data: state, updated_at: new Date().toISOString(),
   })
   if (error) console.warn('[sync] push failed:', error.message)
+  await pushPublicFilms(userId, state)
+}
+
+/** Mirror the user's watched films to their public profile so others can see
+ * their constellation. Trimmed (no ratings/comments). */
+export async function pushPublicFilms(userId, state) {
+  if (!supabase || !userId) return
+  const data = state || exportState()
+  const watched = Object.values(data['stargaze:watched'] || {})
+  const films = watched.slice(0, 200).map(f => ({
+    id: f.id, title: f.title, year: f.year,
+    director: f.director, poster_url: f.poster_url, genres: f.genres,
+  }))
+  await supabase.from('profiles').update({ films }).eq('id', userId)
 }
 
 function _schedulePush() {
